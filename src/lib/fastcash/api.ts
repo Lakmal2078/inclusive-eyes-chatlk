@@ -377,17 +377,18 @@ export async function api(url: string, options: Options = {}): Promise<any> {
         leagueName: fixture?.league_name ?? null,
         commenceAt: fixture?.commence_at ?? null,
       };
-      if (grouped[row.sport]) grouped[row.sport].push(item);
+      const bucket = row.sport === "cricket" ? grouped.cricket : grouped.football;
+      bucket.push(item);
     }
     return {
       cricket: grouped.cricket.slice(0, 5),
       football: grouped.football.slice(0, 5),
       meta: {
         cricket: grouped.cricket[0]
-          ? { publishedAt: grouped.cricket[0].publishedAt, count: grouped.cricket.length }
+          ? { publishedAt: grouped.cricket[0]["publishedAt"], count: grouped.cricket.length }
           : null,
         football: grouped.football[0]
-          ? { publishedAt: grouped.football[0].publishedAt, count: grouped.football.length }
+          ? { publishedAt: grouped.football[0]["publishedAt"], count: grouped.football.length }
           : null,
       },
     };
