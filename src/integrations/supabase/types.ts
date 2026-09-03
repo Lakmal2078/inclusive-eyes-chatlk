@@ -74,6 +74,47 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          message: string
+          read_at: string | null
+          title: string
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind?: string
+          message: string
+          read_at?: string | null
+          title: string
+          transaction_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          message?: string
+          read_at?: string | null
+          title?: string
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -98,6 +139,41 @@ export type Database = {
         }
         Relationships: []
       }
+      transaction_events: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string | null
+          status: string
+          transaction_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          status: string
+          transaction_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          status?: string
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_events_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           account_number: string | null
@@ -112,6 +188,7 @@ export type Database = {
           receipt_image: string | null
           receipt_reference: string | null
           reference: string
+          rejection_reason: string | null
           security_code: string | null
           status: string
           type: string
@@ -130,6 +207,7 @@ export type Database = {
           receipt_image?: string | null
           receipt_reference?: string | null
           reference?: string
+          rejection_reason?: string | null
           security_code?: string | null
           status?: string
           type: string
@@ -148,6 +226,7 @@ export type Database = {
           receipt_image?: string | null
           receipt_reference?: string | null
           reference?: string
+          rejection_reason?: string | null
           security_code?: string | null
           status?: string
           type?: string
