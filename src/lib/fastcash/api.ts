@@ -17,7 +17,7 @@ export type FastCashUser = {
   role: "ADMIN" | "USER";
 };
 
-const fail = (message: string, status = 400) => {
+const fail = (message: string, status = 400): never => {
   const err = new Error(message) as Error & { status?: number };
   err.status = status;
   throw err;
@@ -173,7 +173,7 @@ async function submitTransaction(type: "DEPOSIT" | "WITHDRAWAL", body: Record<st
     .insert(payload)
     .select()
     .maybeSingle();
-  if (error || !data) fail(error?.message ?? "Could not submit your request.");
+  if (error || !data) throw fail(error?.message ?? "Could not submit your request.");
   await supabase.from("transaction_events").insert({
     transaction_id: data.id,
     status: "PENDING",
@@ -307,7 +307,7 @@ export async function api(url: string, options: Options = {}): Promise<any> {
 
   if (url === "/api/notifications/read" && method === "POST") {
     const auth = await supabase.auth.getUser();
-    if (!auth.data.user) fail("Sign in required.", 401);
+    if (!auth.data.user) throw fail("Sign in required.", 401);
     const body = parse(options);
     const query = supabase
       .from("notifications")
@@ -377,17 +377,18 @@ export async function api(url: string, options: Options = {}): Promise<any> {
         leagueName: fixture?.league_name ?? null,
         commenceAt: fixture?.commence_at ?? null,
       };
-      if (grouped[row.sport]) grouped[row.sport].push(item);
+      const bucket = row.sport === "cricket" ? grouped.cricket : grouped.football;
+      bucket.push(item);
     }
     return {
       cricket: grouped.cricket.slice(0, 5),
       football: grouped.football.slice(0, 5),
       meta: {
         cricket: grouped.cricket[0]
-          ? { publishedAt: grouped.cricket[0].publishedAt, count: grouped.cricket.length }
+          ? { publishedAt: grouped.cricket[0]["publishedAt"], count: grouped.cricket.length }
           : null,
         football: grouped.football[0]
-          ? { publishedAt: grouped.football[0].publishedAt, count: grouped.football.length }
+          ? { publishedAt: grouped.football[0]["publishedAt"], count: grouped.football.length }
           : null,
       },
     };
@@ -395,7 +396,7 @@ export async function api(url: string, options: Options = {}): Promise<any> {
 
   if (url === "/api/admin/sports-tips" && method === "GET") {
     const admin = await currentUser();
-    if (admin?.role !== "ADMIN") fail("Administrator access required.", 403);
+    if (admin?.role !== "ADMIN") throw fail("Administrator access required.", 403);
     const [{ data: runs, error: runsError }, { data: tips, error: tipsError }] = await Promise.all([
       supabase
         .from("sports_update_runs")
@@ -503,7 +504,7 @@ export async function api(url: string, options: Options = {}): Promise<any> {
 
   if (url.startsWith("/api/admin/transactions/") && method === "PATCH") {
     const admin = await currentUser();
-    if (admin?.role !== "ADMIN") fail("Administrator access required.", 403);
+    if (admin?.role !== "ADMIN") throw fail("Administrator access required.", 403);
     const reference = url.split("/").pop()!;
     const body = parse(options);
     const nextStatus = String(body.status);
@@ -517,7 +518,7 @@ export async function api(url: string, options: Options = {}): Promise<any> {
       .eq("reference", reference)
       .select()
       .maybeSingle();
-    if (error || !data) fail(error?.message ?? "Could not update this request.");
+    if (error || !data) throw fail(error?.message ?? "Could not update this request.");
     const eventNote =
       nextStatus === "REJECTED" ? rejectionReason : body.note ? String(body.note) : null;
     await supabase.from("transaction_events").insert({

@@ -1,4 +1,4 @@
-const CACHE_NAME = "fast-cash-shell-v2";
+const CACHE_NAME = "fast-cash-shell-v3";
 const APP_SHELL = ["/", "/favicon.png", "/icon-192.png", "/icon-512.png", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {

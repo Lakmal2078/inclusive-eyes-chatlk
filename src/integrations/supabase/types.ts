@@ -74,6 +74,47 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          message: string
+          read_at: string | null
+          title: string
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind?: string
+          message: string
+          read_at?: string | null
+          title: string
+          transaction_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          message?: string
+          read_at?: string | null
+          title?: string
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -98,6 +139,250 @@ export type Database = {
         }
         Relationships: []
       }
+      sports_fixtures: {
+        Row: {
+          away_team: string
+          commence_at: string
+          home_team: string
+          id: string
+          league_key: string | null
+          league_name: string | null
+          provider: string
+          provider_fixture_id: string
+          raw: Json
+          sport: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          away_team: string
+          commence_at: string
+          home_team: string
+          id?: string
+          league_key?: string | null
+          league_name?: string | null
+          provider?: string
+          provider_fixture_id: string
+          raw?: Json
+          sport: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          away_team?: string
+          commence_at?: string
+          home_team?: string
+          id?: string
+          league_key?: string | null
+          league_name?: string | null
+          provider?: string
+          provider_fixture_id?: string
+          raw?: Json
+          sport?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sports_odds_snapshots: {
+        Row: {
+          bookmaker: string
+          captured_at: string
+          decimal_odds: number
+          fixture_id: string
+          id: string
+          implied_probability: number | null
+          market_key: string
+          provider: string
+          raw: Json
+          selection: string
+        }
+        Insert: {
+          bookmaker: string
+          captured_at?: string
+          decimal_odds: number
+          fixture_id: string
+          id?: string
+          implied_probability?: number | null
+          market_key: string
+          provider?: string
+          raw?: Json
+          selection: string
+        }
+        Update: {
+          bookmaker?: string
+          captured_at?: string
+          decimal_odds?: number
+          fixture_id?: string
+          id?: string
+          implied_probability?: number | null
+          market_key?: string
+          provider?: string
+          raw?: Json
+          selection?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sports_odds_snapshots_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: false
+            referencedRelation: "sports_fixtures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sports_tips: {
+        Row: {
+          captured_at: string
+          decimal_odds: number
+          expires_at: string
+          fixture_id: string
+          id: string
+          market_key: string
+          published_at: string
+          rank: number
+          rationale: string
+          result: string
+          result_updated_at: string | null
+          risk_band: string
+          score: number
+          selection: string
+          source: string
+          sport: string
+          update_run_id: string
+        }
+        Insert: {
+          captured_at: string
+          decimal_odds: number
+          expires_at: string
+          fixture_id: string
+          id?: string
+          market_key: string
+          published_at?: string
+          rank: number
+          rationale: string
+          result?: string
+          result_updated_at?: string | null
+          risk_band: string
+          score: number
+          selection: string
+          source?: string
+          sport: string
+          update_run_id: string
+        }
+        Update: {
+          captured_at?: string
+          decimal_odds?: number
+          expires_at?: string
+          fixture_id?: string
+          id?: string
+          market_key?: string
+          published_at?: string
+          rank?: number
+          rationale?: string
+          result?: string
+          result_updated_at?: string | null
+          risk_band?: string
+          score?: number
+          selection?: string
+          source?: string
+          sport?: string
+          update_run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sports_tips_fixture_id_fkey"
+            columns: ["fixture_id"]
+            isOneToOne: false
+            referencedRelation: "sports_fixtures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sports_tips_update_run_id_fkey"
+            columns: ["update_run_id"]
+            isOneToOne: false
+            referencedRelation: "sports_update_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sports_update_runs: {
+        Row: {
+          completed_at: string | null
+          error_message: string | null
+          fixture_count: number
+          id: string
+          metadata: Json
+          provider: string
+          slot: string
+          sport: string
+          started_at: string
+          status: string
+          tip_count: number
+        }
+        Insert: {
+          completed_at?: string | null
+          error_message?: string | null
+          fixture_count?: number
+          id?: string
+          metadata?: Json
+          provider?: string
+          slot: string
+          sport: string
+          started_at?: string
+          status?: string
+          tip_count?: number
+        }
+        Update: {
+          completed_at?: string | null
+          error_message?: string | null
+          fixture_count?: number
+          id?: string
+          metadata?: Json
+          provider?: string
+          slot?: string
+          sport?: string
+          started_at?: string
+          status?: string
+          tip_count?: number
+        }
+        Relationships: []
+      }
+      transaction_events: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string | null
+          status: string
+          transaction_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          status: string
+          transaction_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          status?: string
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_events_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           account_number: string | null
@@ -112,6 +397,7 @@ export type Database = {
           receipt_image: string | null
           receipt_reference: string | null
           reference: string
+          rejection_reason: string | null
           security_code: string | null
           status: string
           type: string
@@ -130,6 +416,7 @@ export type Database = {
           receipt_image?: string | null
           receipt_reference?: string | null
           reference?: string
+          rejection_reason?: string | null
           security_code?: string | null
           status?: string
           type: string
@@ -148,6 +435,7 @@ export type Database = {
           receipt_image?: string | null
           receipt_reference?: string | null
           reference?: string
+          rejection_reason?: string | null
           security_code?: string | null
           status?: string
           type?: string

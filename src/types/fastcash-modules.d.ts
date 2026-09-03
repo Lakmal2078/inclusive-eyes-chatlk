@@ -48,3 +48,8 @@ declare module "@/components/fastcash/ReceiptScanner.jsx" {
   const ReceiptScanner: any;
   export default ReceiptScanner;
 }
+
+declare module "@/components/fastcash/SportsTips.jsx" {
+  const SportsTips: any;
+  export default SportsTips;
+}
