@@ -10,14 +10,14 @@
 
 ## පරීක්ෂණ ප්‍රතිඵල
 
-| පරීක්ෂණය | ප්‍රතිඵලය | තත්ත්වය |
-|---|---|---|
-| `npm install --no-audit --no-fund` | Packages 462ක් install විය | සමත් |
-| `npm run lint` | Problems 54ක්: errors 45ක්, warnings 9ක් | අසමත් |
-| `npm run build` | Client සහ SSR bundles සාර්ථකව build විය | සමත්; warning එකක් ඇත |
-| `npm start` | `Missing file or directory: /home/ubuntu/inclusive-eyes` | අසමත් |
-| Live `/`, `/deposit`, `/withdraw`, `/transactions`, `/robots.txt` | HTTP 404 / Project not found | අසමත් |
-| Live browser console | Error output නොමැත; page එක application එක නොවේ | අවහිර වී ඇත |
+| පරීක්ෂණය                                                          | ප්‍රතිඵලය                                                | තත්ත්වය               |
+| ----------------------------------------------------------------- | -------------------------------------------------------- | --------------------- |
+| `npm install --no-audit --no-fund`                                | Packages 462ක් install විය                               | සමත්                  |
+| `npm run lint`                                                    | Problems 54ක්: errors 45ක්, warnings 9ක්                 | අසමත්                 |
+| `npm run build`                                                   | Client සහ SSR bundles සාර්ථකව build විය                  | සමත්; warning එකක් ඇත |
+| `npm start`                                                       | `Missing file or directory: /home/ubuntu/inclusive-eyes` | අසමත්                 |
+| Live `/`, `/deposit`, `/withdraw`, `/transactions`, `/robots.txt` | HTTP 404 / Project not found                             | අසමත්                 |
+| Live browser console                                              | Error output නොමැත; page එක application එක නොවේ          | අවහිර වී ඇත           |
 
 ## ප්‍රධාන සොයාගැනීම්
 
@@ -65,9 +65,6 @@ Source code සහ Supabase migrations පරීක්ෂා කළ විට tr
 ## References
 
 [1]: https://github.com/Lakmal2078/inclusive-eyes "Fast Cash source repository"
-
 [2]: https://github.com/Lakmal2078/inclusive-eyes/blob/main/package.json "Fast Cash package scripts and dependencies"
-
 [3]: https://github.com/Lakmal2078/inclusive-eyes/blob/main/docs/TESTING_CHECKLIST.md "Fast Cash testing checklist"
-
 [4]: https://inclusive-eyes.lovable.app "Published Fast Cash URL checked during testing"

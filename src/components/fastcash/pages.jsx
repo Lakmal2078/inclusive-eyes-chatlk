@@ -2040,11 +2040,10 @@ export const PwaInstallBanner = ({ t }) => {
     const isAndroid = /android/i.test(window.navigator.userAgent);
     setInstallHelp(
       isIOS
-        ? t?.pwaBanner?.iosHelp ||
-            "On iPhone/iPad, tap Share and choose Add to Home Screen."
+        ? t?.pwaBanner?.iosHelp || "On iPhone/iPad, tap Share and choose Add to Home Screen."
         : isAndroid
           ? t?.pwaBanner?.androidHelp ||
-              "Open the browser menu and choose Install app or Add to Home screen."
+            "Open the browser menu and choose Install app or Add to Home screen."
           : t?.pwaBanner?.browserHelp ||
             "Use your browser menu and choose Install app or Add to Home screen.",
     );

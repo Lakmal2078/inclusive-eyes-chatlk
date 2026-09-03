@@ -1989,7 +1989,10 @@ summary:focus-visible {
   white-space: normal;
   overflow-wrap: anywhere;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .admin-tab:hover,

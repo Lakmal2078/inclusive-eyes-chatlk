@@ -20,6 +20,10 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      "prefer-const": "error", // ← මෙය එක් කරන්න
+      "@typescript-eslint/no-explicit-any": "warn", // ← මෙය එක් කරන්න (දෝෂ වෙනුවට අනතුරු ඇඟවීම්)
+      "@typescript-eslint/no-unused-vars": "warn", // ← "off" වෙනුවට "warn"
+      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "no-restricted-imports": [
         "error",
         {
@@ -32,8 +36,6 @@ export default tseslint.config(
           ],
         },
       ],
-      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
-      "@typescript-eslint/no-unused-vars": "off",
     },
   },
   eslintPluginPrettier,

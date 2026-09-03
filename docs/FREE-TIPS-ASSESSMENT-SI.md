@@ -16,16 +16,16 @@ Database migrations පරීක්ෂා කළ විට `profiles`, `user_rol
 
 මෙය production-ready ලෙස කිරීමට පහත කොටස් අවශ්‍ය වේ:
 
-| කොටස | යෝජිත ක්‍රියාකාරකම |
-| --- | --- |
-| Sports data | fixtures, odds, leagues, start times සහ results ගන්න external sports-data API එකක් |
-| Ranking | odds, implied probability, form/statistics, injuries/line-ups (ලබාගත හැකි නම්) මත deterministic scoring rule එකක් |
-| Tips database | fixture, market, selection, odds, confidence band, source, generated time, expiry සහ result ගබඩා කිරීම |
-| Scheduler | Asia/Colombo වේලා කලාපයෙන් 08:00, 12:00, 18:00 jobs |
-| Public UI | Cricket සහ Football tabs; එක් sport එකකට picks 5; “updated at”, “odds captured at”, “valid until”, source සහ risk label |
-| Admin UI | manual publish/unpublish, API health, failed runs, audit history, correction/void controls |
-| Notifications | optional in-app notification; push/WhatsApp/Telegram සඳහා වෙනම credentials සහ consent අවශ්‍ය වේ |
-| Compliance | 18+ gate, responsible-gambling notice, “no guaranteed win” wording, data/odds timestamp, jurisdiction review |
+| කොටස          | යෝජිත ක්‍රියාකාරකම                                                                                                      |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Sports data   | fixtures, odds, leagues, start times සහ results ගන්න external sports-data API එකක්                                      |
+| Ranking       | odds, implied probability, form/statistics, injuries/line-ups (ලබාගත හැකි නම්) මත deterministic scoring rule එකක්       |
+| Tips database | fixture, market, selection, odds, confidence band, source, generated time, expiry සහ result ගබඩා කිරීම                  |
+| Scheduler     | Asia/Colombo වේලා කලාපයෙන් 08:00, 12:00, 18:00 jobs                                                                     |
+| Public UI     | Cricket සහ Football tabs; එක් sport එකකට picks 5; “updated at”, “odds captured at”, “valid until”, source සහ risk label |
+| Admin UI      | manual publish/unpublish, API health, failed runs, audit history, correction/void controls                              |
+| Notifications | optional in-app notification; push/WhatsApp/Telegram සඳහා වෙනම credentials සහ consent අවශ්‍ය වේ                         |
+| Compliance    | 18+ gate, responsible-gambling notice, “no guaranteed win” wording, data/odds timestamp, jurisdiction review            |
 
 ### වේලා පරිවර්තනය
 
@@ -55,12 +55,12 @@ UTC cron භාවිතා කළහොත් ඒවා පිළිවෙල�
 
 ## 4. Data/API විකල්ප
 
-| ක්‍රමය | වාසි සහ අවාසි | වියදම | Setup complexity |
-| --- | --- | --- | --- |
-| **The Odds API + football/cricket feed** | Odds-focused, football සහ cricket coverage පවතී; free tier එකේ 500 credits/month නිසා දිනකට jobs 3ක් සහ limited leagues සඳහා පමණක් සරිලනවා විය හැක. Traffic වැඩි වුවහොත් credits ඉක්මනින් අවසන් විය හැක. | Free tier; paid plans page එකේ $30/month සිට පෙන්වයි | මධ්‍යම |
-| **API-Football + වෙනම cricket data/odds provider** | Football සඳහා free plan එකේ 100 requests/day සහ fixtures, pre-match odds, predictions වැනි endpoints තිබේ. Cricket සඳහා වෙනම provider එකක් අවශ්‍ය වන නිසා architecture සහ billing දෙකක් වේ. | Football free; cricket provider අනුව වෙනස් | මධ්‍යම–ඉහළ |
-| **OpticOdds connector** | Single normalized feed එකකින් cricket, soccer/football, fixtures, odds, results, historical odds සහ bookmaker data ගත හැක. මෙම session එකේ connector එක හමු වූ නමුත් **disabled**; license/API access නොමැතිව live integration පරීක්ෂා කළ නොහැක. | Provider plan අනුව; current session config එකෙන් plan price තහවුරු කළ නොහැක | ඉහළ |
-| **Manual/admin-assisted MVP** | API key නැතිව admin විසින් tips/odds ඇතුළත් කර publish කරයි. ඉක්මනින් UI, database, result history සහ retention flow පරීක්ෂා කළ හැක. නමුත් auto-update නොවේ. | Data API වියදම නැත | අඩු |
+| ක්‍රමය                                             | වාසි සහ අවාසි                                                                                                                                                                                                                                    | වියදම                                                                       | Setup complexity |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- | ---------------- |
+| **The Odds API + football/cricket feed**           | Odds-focused, football සහ cricket coverage පවතී; free tier එකේ 500 credits/month නිසා දිනකට jobs 3ක් සහ limited leagues සඳහා පමණක් සරිලනවා විය හැක. Traffic වැඩි වුවහොත් credits ඉක්මනින් අවසන් විය හැක.                                         | Free tier; paid plans page එකේ $30/month සිට පෙන්වයි                        | මධ්‍යම           |
+| **API-Football + වෙනම cricket data/odds provider** | Football සඳහා free plan එකේ 100 requests/day සහ fixtures, pre-match odds, predictions වැනි endpoints තිබේ. Cricket සඳහා වෙනම provider එකක් අවශ්‍ය වන නිසා architecture සහ billing දෙකක් වේ.                                                      | Football free; cricket provider අනුව වෙනස්                                  | මධ්‍යම–ඉහළ       |
+| **OpticOdds connector**                            | Single normalized feed එකකින් cricket, soccer/football, fixtures, odds, results, historical odds සහ bookmaker data ගත හැක. මෙම session එකේ connector එක හමු වූ නමුත් **disabled**; license/API access නොමැතිව live integration පරීක්ෂා කළ නොහැක. | Provider plan අනුව; current session config එකෙන් plan price තහවුරු කළ නොහැක | ඉහළ              |
+| **Manual/admin-assisted MVP**                      | API key නැතිව admin විසින් tips/odds ඇතුළත් කර publish කරයි. ඉක්මනින් UI, database, result history සහ retention flow පරීක්ෂා කළ හැක. නමුත් auto-update නොවේ.                                                                                     | Data API වියදම නැත                                                          | අඩු              |
 
 **වැදගත්:** “free tips” කියන්නේ user වෙත නොමිලේ පෙන්වීමයි. විශ්වාසදායක live odds/fixtures data එක සෑමවිටම free නොවිය හැක. API data එක scrape කිරීම වෙනුවට provider එකේ terms අනුව licensed API භාවිතා කළ යුතුය.
 

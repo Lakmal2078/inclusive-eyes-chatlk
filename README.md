@@ -27,53 +27,53 @@ Fast Cash is a multilingual deposit and withdrawal payment-support portal for 1x
 
 ## Features
 
-| Area | Current behavior |
-| --- | --- |
-| Deposit requests | Displays active agent bank or payment accounts, validates amount limits, accepts Player ID and payment method, and optionally attaches a receipt image. |
-| Withdrawal requests | Collects Player ID, security code, recipient bank details, amount, and contact information for agent review. |
-| Receipt OCR | Uses Tesseract.js in the browser to detect receipt amount and reference details; no OCR server is required. |
-| Transaction history | Authenticated users can review their own requests and statuses such as `PENDING`, `APPROVED`, `COMPLETED`, `REJECTED`, `CANCELLED`, and `PROCESSING`. |
-| Authentication | Email and password registration and login are backed by Supabase Auth. Email confirmation may be required by the backend configuration. |
-| Admin dashboard | Server-authorized administrators can view overview statistics, process transactions, manage agent payment accounts, edit system settings, and review users. |
-| Support | Includes a rule-based support assistant, FAQ content, WhatsApp contact actions, promotional information, privacy policy, and responsible-gambling notices. |
-| Languages and theme | Supports English, සිංහල, and தமிழ், together with dark and light themes. The selected language is synchronized with the document language. |
-| Responsive layout | Uses CSS Grid and Flexbox for desktop, tablet, and mobile layouts. Admin tabs use equal-width columns on larger screens and uniform stacking on narrow screens. |
-| Progressive Web App | Includes a web manifest, service worker, install icons, offline shell caching, and browser-specific installation guidance. |
-| Accessibility | Includes labelled form fields, keyboard focus indicators, skip navigation, ARIA attributes for menus and dialogs, and responsive controls with usable touch targets. |
+| Area                | Current behavior                                                                                                                                                     |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Deposit requests    | Displays active agent bank or payment accounts, validates amount limits, accepts Player ID and payment method, and optionally attaches a receipt image.              |
+| Withdrawal requests | Collects Player ID, security code, recipient bank details, amount, and contact information for agent review.                                                         |
+| Receipt OCR         | Uses Tesseract.js in the browser to detect receipt amount and reference details; no OCR server is required.                                                          |
+| Transaction history | Authenticated users can review their own requests and statuses such as `PENDING`, `APPROVED`, `COMPLETED`, `REJECTED`, `CANCELLED`, and `PROCESSING`.                |
+| Authentication      | Email and password registration and login are backed by Supabase Auth. Email confirmation may be required by the backend configuration.                              |
+| Admin dashboard     | Server-authorized administrators can view overview statistics, process transactions, manage agent payment accounts, edit system settings, and review users.          |
+| Support             | Includes a rule-based support assistant, FAQ content, WhatsApp contact actions, promotional information, privacy policy, and responsible-gambling notices.           |
+| Languages and theme | Supports English, සිංහල, and தமிழ், together with dark and light themes. The selected language is synchronized with the document language.                           |
+| Responsive layout   | Uses CSS Grid and Flexbox for desktop, tablet, and mobile layouts. Admin tabs use equal-width columns on larger screens and uniform stacking on narrow screens.      |
+| Progressive Web App | Includes a web manifest, service worker, install icons, offline shell caching, and browser-specific installation guidance.                                           |
+| Accessibility       | Includes labelled form fields, keyboard focus indicators, skip navigation, ARIA attributes for menus and dialogs, and responsive controls with usable touch targets. |
 
 ## Technology
 
-| Layer | Technology |
-| --- | --- |
-| UI framework | React 19 with TanStack Start v1 and TanStack Router file-based routes |
-| Build tool | Vite 8 |
-| Styling | Tailwind CSS v4 plus the application stylesheet at `src/fastcash.css` |
-| Backend | Supabase-compatible backend with Postgres, Auth, Row Level Security, and server-side API handlers |
-| Browser OCR | Tesseract.js |
-| Server runtime | Nitro output with Wrangler/Cloudflare-compatible worker configuration |
-| Package manager | npm; Bun can also be used when supported by the environment |
-| PWA assets | `public/manifest.webmanifest`, `public/sw.js`, and `public/icon-192.png` / `public/icon-512.png` |
+| Layer           | Technology                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------- |
+| UI framework    | React 19 with TanStack Start v1 and TanStack Router file-based routes                             |
+| Build tool      | Vite 8                                                                                            |
+| Styling         | Tailwind CSS v4 plus the application stylesheet at `src/fastcash.css`                             |
+| Backend         | Supabase-compatible backend with Postgres, Auth, Row Level Security, and server-side API handlers |
+| Browser OCR     | Tesseract.js                                                                                      |
+| Server runtime  | Nitro output with Wrangler/Cloudflare-compatible worker configuration                             |
+| Package manager | npm; Bun can also be used when supported by the environment                                       |
+| PWA assets      | `public/manifest.webmanifest`, `public/sw.js`, and `public/icon-192.png` / `public/icon-512.png`  |
 
 ## Application routes
 
 The application uses TanStack Router. Each route file is located in `src/routes/` and is also available through the corresponding URL path.
 
-| Path | Purpose | Access |
-| --- | --- | --- |
-| `/` | Home page, feature cards, 1xBet information, privacy summary, and responsible-gambling notice | Public |
-| `/deposit` | Deposit request form and active agent payment accounts | Public form; authentication may be used for history |
-| `/withdraw` | Withdrawal request form | Public form; authentication may be used for history |
-| `/transactions` | User transaction history and status | Authenticated user data |
-| `/1xbet` | 1xBet account and Player ID guide | Public |
-| `/sports` | Sports betting payment-support guide | Public |
-| `/live-bet` | Live betting payment-support guide | Public |
-| `/casino` | Casino and slots payment-support guide | Public |
-| `/promotions` | Promotions and agent promo-code information | Public |
-| `/support` | Support assistant, FAQ, and agent contact details | Public |
-| `/privacy-policy` | Full privacy policy | Public |
-| `/login` | User account login | Public |
-| `/register` | User account registration | Public |
-| `/admin` | Administrator login and dashboard | Admin role required for dashboard data |
+| Path              | Purpose                                                                                       | Access                                              |
+| ----------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `/`               | Home page, feature cards, 1xBet information, privacy summary, and responsible-gambling notice | Public                                              |
+| `/deposit`        | Deposit request form and active agent payment accounts                                        | Public form; authentication may be used for history |
+| `/withdraw`       | Withdrawal request form                                                                       | Public form; authentication may be used for history |
+| `/transactions`   | User transaction history and status                                                           | Authenticated user data                             |
+| `/1xbet`          | 1xBet account and Player ID guide                                                             | Public                                              |
+| `/sports`         | Sports betting payment-support guide                                                          | Public                                              |
+| `/live-bet`       | Live betting payment-support guide                                                            | Public                                              |
+| `/casino`         | Casino and slots payment-support guide                                                        | Public                                              |
+| `/promotions`     | Promotions and agent promo-code information                                                   | Public                                              |
+| `/support`        | Support assistant, FAQ, and agent contact details                                             | Public                                              |
+| `/privacy-policy` | Full privacy policy                                                                           | Public                                              |
+| `/login`          | User account login                                                                            | Public                                              |
+| `/register`       | User account registration                                                                     | Public                                              |
+| `/admin`          | Administrator login and dashboard                                                             | Admin role required for dashboard data              |
 
 ## Project structure
 
@@ -152,17 +152,17 @@ The preview server normally uses port `8787`. The terminal output is the authori
 
 Create `.env` in the project root when it is not already supplied by the deployment platform. The complete example is in [`.env.example`](.env.example), and the detailed reference is [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md).
 
-| Variable | Scope | Purpose |
-| --- | --- | --- |
-| `VITE_SUPABASE_URL` | Browser | Supabase backend URL exposed to the client |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Browser | Publishable/anonymous key exposed to the client |
-| `VITE_SUPABASE_PROJECT_ID` | Browser | Supabase project identifier |
-| `SUPABASE_URL` | Server and SSR | Backend URL for server-side rendering and handlers |
-| `SUPABASE_PUBLISHABLE_KEY` | Server and SSR | Publishable key for server-side reads |
-| `SUPABASE_PROJECT_ID` | Server and SSR | Backend project identifier |
-| `VITE_APP_URL` | Optional browser value | Absolute production URL used for social image metadata |
-| `PORT` | Optional runtime value | Development server port override |
-| `NODE_OPTIONS` | Optional build value | Memory override for constrained devices |
+| Variable                        | Scope                  | Purpose                                                |
+| ------------------------------- | ---------------------- | ------------------------------------------------------ |
+| `VITE_SUPABASE_URL`             | Browser                | Supabase backend URL exposed to the client             |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Browser                | Publishable/anonymous key exposed to the client        |
+| `VITE_SUPABASE_PROJECT_ID`      | Browser                | Supabase project identifier                            |
+| `SUPABASE_URL`                  | Server and SSR         | Backend URL for server-side rendering and handlers     |
+| `SUPABASE_PUBLISHABLE_KEY`      | Server and SSR         | Publishable key for server-side reads                  |
+| `SUPABASE_PROJECT_ID`           | Server and SSR         | Backend project identifier                             |
+| `VITE_APP_URL`                  | Optional browser value | Absolute production URL used for social image metadata |
+| `PORT`                          | Optional runtime value | Development server port override                       |
+| `NODE_OPTIONS`                  | Optional build value   | Memory override for constrained devices                |
 
 Never place service-role keys, database passwords, or other secrets in a `VITE_*` variable. Anything prefixed with `VITE_` is bundled into browser code. After changing `.env`, restart the development server and rebuild before testing the change.
 
@@ -170,15 +170,15 @@ WhatsApp number, transaction limits, and the promo code are application settings
 
 ## Available scripts
 
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Start the Vite development server, normally on port `8080`. |
-| `npm run build` | Create the production client and Nitro server output. |
-| `npm run build:dev` | Create a development-mode Vite build. |
-| `npm start` | Run the generated production preview through Wrangler using `.output/server/wrangler.json`. |
-| `npm run preview` | Alias for `npm start`. |
-| `npm run lint` | Run the repository ESLint configuration. |
-| `npm run format` | Format project files with Prettier. |
+| Command             | Purpose                                                                                     |
+| ------------------- | ------------------------------------------------------------------------------------------- |
+| `npm run dev`       | Start the Vite development server, normally on port `8080`.                                 |
+| `npm run build`     | Create the production client and Nitro server output.                                       |
+| `npm run build:dev` | Create a development-mode Vite build.                                                       |
+| `npm start`         | Run the generated production preview through Wrangler using `.output/server/wrangler.json`. |
+| `npm run preview`   | Alias for `npm start`.                                                                      |
+| `npm run lint`      | Run the repository ESLint configuration.                                                    |
+| `npm run format`    | Format project files with Prettier.                                                         |
 
 ## User and admin workflows
 
@@ -244,16 +244,16 @@ NODE_OPTIONS=--max-old-space-size=2048 npm run build
 
 ## Troubleshooting
 
-| Symptom | Recommended action |
-| --- | --- |
-| `Missing Supabase environment variable(s)` | Confirm the required keys in `.env`, check spelling, and restart the dev server. |
-| `Failed to fetch` during login or request submission | Check internet access, backend availability, firewall/VPN settings, and Supabase configuration. |
-| Port already in use | Run `PORT=3000 npm run dev` and open the new port. |
-| Build runs out of memory | Set `NODE_OPTIONS=--max-old-space-size=2048` before `npm run build`. |
-| OCR does not finish | Use a smaller, clearer image, keep the browser tab active, and confirm that OCR language data can load. |
-| Install button shows instructions instead of a native prompt | This is expected when the browser does not expose `beforeinstallprompt`; use the displayed browser-menu instructions. |
-| Old layout remains after deployment | Refresh after the service-worker update, clear site data during testing, or unregister the old service worker in browser developer tools. |
-| Blank page after local edits | Stop the server, remove `node_modules/.vite`, reinstall dependencies if necessary, and restart. |
+| Symptom                                                      | Recommended action                                                                                                                        |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `Missing Supabase environment variable(s)`                   | Confirm the required keys in `.env`, check spelling, and restart the dev server.                                                          |
+| `Failed to fetch` during login or request submission         | Check internet access, backend availability, firewall/VPN settings, and Supabase configuration.                                           |
+| Port already in use                                          | Run `PORT=3000 npm run dev` and open the new port.                                                                                        |
+| Build runs out of memory                                     | Set `NODE_OPTIONS=--max-old-space-size=2048` before `npm run build`.                                                                      |
+| OCR does not finish                                          | Use a smaller, clearer image, keep the browser tab active, and confirm that OCR language data can load.                                   |
+| Install button shows instructions instead of a native prompt | This is expected when the browser does not expose `beforeinstallprompt`; use the displayed browser-menu instructions.                     |
+| Old layout remains after deployment                          | Refresh after the service-worker update, clear site data during testing, or unregister the old service worker in browser developer tools. |
+| Blank page after local edits                                 | Stop the server, remove `node_modules/.vite`, reinstall dependencies if necessary, and restart.                                           |
 
 ## Security and operational notes
 
@@ -263,17 +263,17 @@ Treat receipts, bank details, contact numbers, security codes, and transaction r
 
 ## Documentation
 
-| Guide | Coverage |
-| --- | --- |
-| [`docs/INSTALLATION.md`](docs/INSTALLATION.md) | Detailed setup, Termux commands, verification, and troubleshooting |
-| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Deployment and rollback guidance |
-| [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) | Environment variables and configuration rules |
-| [`docs/API.md`](docs/API.md) | API endpoints, request payloads, responses, and data model |
-| [`docs/ADMIN_MANUAL.md`](docs/ADMIN_MANUAL.md) | Administrator sign-in, dashboard operation, and role management |
-| [`docs/USER_MANUAL.md`](docs/USER_MANUAL.md) | User-facing deposit, withdrawal, account, and support workflows |
-| [`docs/BACKUP.md`](docs/BACKUP.md) | Backup, restore, and recovery procedures |
-| [`docs/SECURITY_CHECKLIST.md`](docs/SECURITY_CHECKLIST.md) | Security acceptance checks |
-| [`docs/TESTING_CHECKLIST.md`](docs/TESTING_CHECKLIST.md) | Functional and regression test checklist |
-| [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md) | Production readiness checklist |
+| Guide                                                          | Coverage                                                           |
+| -------------------------------------------------------------- | ------------------------------------------------------------------ |
+| [`docs/INSTALLATION.md`](docs/INSTALLATION.md)                 | Detailed setup, Termux commands, verification, and troubleshooting |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)                     | Deployment and rollback guidance                                   |
+| [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md)                   | Environment variables and configuration rules                      |
+| [`docs/API.md`](docs/API.md)                                   | API endpoints, request payloads, responses, and data model         |
+| [`docs/ADMIN_MANUAL.md`](docs/ADMIN_MANUAL.md)                 | Administrator sign-in, dashboard operation, and role management    |
+| [`docs/USER_MANUAL.md`](docs/USER_MANUAL.md)                   | User-facing deposit, withdrawal, account, and support workflows    |
+| [`docs/BACKUP.md`](docs/BACKUP.md)                             | Backup, restore, and recovery procedures                           |
+| [`docs/SECURITY_CHECKLIST.md`](docs/SECURITY_CHECKLIST.md)     | Security acceptance checks                                         |
+| [`docs/TESTING_CHECKLIST.md`](docs/TESTING_CHECKLIST.md)       | Functional and regression test checklist                           |
+| [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md) | Production readiness checklist                                     |
 
 Maintained for the Fast Cash project.
