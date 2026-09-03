@@ -17,7 +17,7 @@ export type FastCashUser = {
   role: "ADMIN" | "USER";
 };
 
-const fail = (message: string, status = 400) => {
+const fail = (message: string, status = 400): never => {
   const err = new Error(message) as Error & { status?: number };
   err.status = status;
   throw err;
