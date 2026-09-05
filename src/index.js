@@ -6,6 +6,7 @@ import { chatRoutes } from './routes/chats.js';
 import { messageRoutes } from './routes/messages.js';
 import { mediaRoutes } from './routes/media.js';
 import { aiRoutes } from './routes/ai.js';
+import { statusRoutes } from './routes/statuses.js';
 import { authMiddleware } from './middleware/auth.js';
 import { corsMiddleware } from './middleware/cors.js';
 import { rateLimitMiddleware } from './middleware/rateLimit.js';
@@ -25,6 +26,7 @@ app.get('/ws', async c => {
 });
 app.use('/api/*', authMiddleware);
 app.route('/api/users', userRoutes);
+app.route('/api/statuses', statusRoutes);
 app.route('/api', userRoutes);
 app.route('/api/chats', chatRoutes);
 app.route('/api', messageRoutes);
