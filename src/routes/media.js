@@ -3,7 +3,7 @@ import { deleteFile, getFile, uploadFile } from '../lib/r2.js';
 import { generateId, mediaExtension } from '../lib/utils.js';
 
 export const mediaRoutes = new Hono();
-const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'audio/ogg', 'audio/mp4', 'application/pdf']);
+const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'audio/ogg', 'audio/mp4', 'audio/webm', 'application/pdf']);
 
 mediaRoutes.post('/upload', async c => {
   const form = await c.req.formData();
