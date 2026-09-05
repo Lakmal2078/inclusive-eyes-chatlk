@@ -4,12 +4,16 @@ ChatLK is a mobile-first, installable real-time messaging application built for 
 
 ## Local development
 
+Create local secrets before starting:
+
 ```bash
 npm install
 printf 'JWT_SECRET=replace-me\n' > .dev.vars
 npm test
-npm run dev
+npm run dev:local
 ```
+
+Use `npm run dev:local` on constrained environments. It avoids Wrangler's remote inspector/container path, which can fail with `FATAL ERROR: Out of memory` and `write EPIPE`. Workers AI uses the application's safe fallback responses when no local AI binding is available.
 
 The browser shell is served by `src/routes/frontend.js`; the client provides login/register, chat list, conversation view, message composer, PWA manifest, responsive layout, and WebSocket updates. User-entered text is escaped before rendering.
 
@@ -25,15 +29,6 @@ npx wrangler secret put JWT_SECRET
 npm run db:migrate
 npm run deploy
 ```
-
-## Structure
-
-- `src/index.js`: Worker entrypoint, bindings, public and protected route wiring.
-- `src/routes/`: auth, users/contacts, chats, messages, media, AI, and frontend routes.
-- `src/do/chat-room.js`: authenticated WebSocket Durable Object with message broadcast, typing, presence, and read events.
-- `src/lib/`: PBKDF2 password hashing, HS256 JWT, D1/R2 helpers, validation.
-- `migrations/`: core messaging and premium/channel schema.
-- `src/static/`: PWA client and visual design system.
 
 ## Security notes
 
