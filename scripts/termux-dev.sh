@@ -12,8 +12,10 @@ if [[ ! -f package.json ]]; then
 fi
 
 if [[ ! -f .dev.vars ]]; then
-  echo "Missing .dev.vars. Run ./scripts/termux-setup.sh first." >&2
-  exit 1
+  secret="$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
+  printf 'JWT_SECRET=%s\n' "$secret" > .dev.vars
+  chmod 600 .dev.vars
+  echo "Created .dev.vars with a random local JWT secret."
 fi
 
 # Android/Termux can fail while Wrangler starts its local workerd binary with
