@@ -6,12 +6,12 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "chat-db"
-database_id = "YOUR_D1_DATABASE_ID"
+database_id = "bead94cf-542e-407e-a6d5-ea77d0b08342"
 migrations_dir = "migrations"
 
 [[kv_namespaces]]
 binding = "CACHE"
-id = "YOUR_KV_NAMESPACE_ID"
+id = "eacaab54753d4c6b9b17033350ab9bf3"
 
 [[r2_buckets]]
 binding = "MEDIA"
@@ -23,7 +23,7 @@ class_name = "ChatRoom"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["ChatRoom"]
+new_sqlite_classes = ["ChatRoom"]
 
 [ai]
 binding = "AI"
@@ -38,3 +38,4 @@ CORS_ORIGIN = "*"
 [env.staging]
 name = "chatlk-staging"
 vars = { ENVIRONMENT = "staging", APP_NAME = "ChatLK Staging", CORS_ORIGIN = "https://staging.chatlk.example" }
+

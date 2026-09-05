@@ -18,9 +18,9 @@ if [[ ! -f .dev.vars ]]; then
   echo "Created .dev.vars with a random local JWT secret."
 fi
 
-# Android/proot can fail while Wrangler's preview proxy/workerd starts a 1 GiB
-# virtual-memory allocation. A no-bundle deployment runs the Worker on Cloudflare
-# and avoids starting that local preview process entirely. This is remote
-# development, not a local-only server, and requires Cloudflare authentication.
-echo "Deploying ChatLK to Cloudflare (Android-safe no-bundle development mode)..."
-exec npx wrangler deploy --no-bundle "$@"
+# wrangler deploy uploads the bundled Worker to Cloudflare — it does NOT start
+# a local workerd/preview process, so it is safe on Android/Termux/proot.
+# Bundling is required so npm dependencies (hono, etc.) are included.
+echo "Deploying ChatLK to Cloudflare (Android-safe bundled deployment)..."
+exec npx wrangler deploy "$@"
+
