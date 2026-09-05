@@ -14,6 +14,14 @@ async function run(env, model, input) {
   }
 }
 
+function sanitizeText(value) {
+  return String(value ?? '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/javascript\s*:/gi, '')
+    .replace(/on[a-z]+\s*=/gi, '')
+    .trim();
+}
+
 aiRoutes.post('/smart-reply', async c => {
   const body = await jsonBody(c);
   if (!body?.text || body.text.length > 4096) return c.json({ error: 'Text is required' }, 400);
@@ -21,7 +29,7 @@ aiRoutes.post('/smart-reply', async c => {
   let replies = ['Sounds good!', 'Thank you for letting me know.', 'I will get back to you soon.'];
   try {
     const parsed = JSON.parse(result?.response || '');
-    if (Array.isArray(parsed)) replies = parsed.slice(0, 3);
+    if (Array.isArray(parsed)) replies = parsed.slice(0, 3).map(sanitizeText).filter(Boolean);
   } catch {}
   return c.json({ replies });
 });
@@ -31,7 +39,7 @@ aiRoutes.post('/translate', async c => {
   if (!body?.text || !['si', 'ta', 'en'].includes(body.source_lang) || !['si', 'ta', 'en'].includes(body.target_lang)) return c.json({ error: 'text, source_lang, and target_lang are required' }, 400);
   if (body.source_lang === body.target_lang) return c.json({ translation: body.text });
   const result = await run(c.env, '@cf/meta/m2m100-1.2b', { text: body.text, source_lang: body.source_lang, target_lang: body.target_lang });
-  return c.json({ translation: result?.translated_text || result?.translation || body.text, fallback: !result });
+  return c.json({ translation: sanitizeText(result?.translated_text || result?.translation || body.text), fallback: !result });
 });
 
 aiRoutes.post('/moderate', async c => {
