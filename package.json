@@ -4,23 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "npm run sync-assets && wrangler dev",
-    "dev:local": "npm run sync-assets && wrangler dev --local --inspector-port 0",
-    "dev:termux": "npm run sync-assets && bash scripts/termux-dev.sh",
-    "setup:termux": "bash scripts/termux-setup.sh",
+    "dev": "npm run sync-assets && node server.js",
+    "start": "node server.js",
+    "build": "npm run sync-assets",
     "sync-assets": "node scripts/sync-assets.mjs",
-    "deploy": "npm run sync-assets && wrangler deploy",
-    "deploy:staging": "npm run sync-assets && wrangler deploy --env staging",
-    "db:create": "wrangler d1 create chat-db",
-    "db:migrate": "wrangler d1 migrations apply chat-db",
-    "db:migrate:staging": "wrangler d1 migrations apply chat-db --env staging",
-    "kv:create": "wrangler kv namespace create CACHE",
-    "r2:create": "wrangler r2 bucket create chat-media",
-    "secret:set": "wrangler secret put JWT_SECRET",
+    "lint": "node --check server.js src/index.js src/lib/node-env.js",
     "test": "node --test tests/*.test.js"
   },
   "dependencies": {
-    "hono": "^4.6.0"
+    "@hono/node-server": "^2.1.1",
+    "hono": "^4.6.0",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "wrangler": "^4.125.0"

@@ -1,0 +1,11 @@
+{
+  "name": "ChatLK",
+  "description": "ChatLK real-time messaging application with groups, status updates, voice notes, and media sharing",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
