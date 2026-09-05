@@ -1,54 +1,78 @@
 # ChatLK
 
-ChatLK is a mobile-first, installable real-time messaging application built for Cloudflare Workers. It follows the supplied technical specification with Hono routes, D1 persistence, KV rate limiting, R2 media storage, Workers AI features, and one Durable Object per chat room.
+ChatLK is a mobile-first, installable real-time messaging application built on Cloudflare Workers. It uses Hono for HTTP routing, D1 for durable data, KV for rate limiting, R2 for media, Workers AI for optional assistance, and one Durable Object per chat room for WebSocket delivery.
+
+## Features
+
+- Username/phone registration and HS256 JWT authentication with seven-day expiry.
+- Direct and group chats with participant administration.
+- Cursor-paginated message history, search, edit, delete, and read receipts.
+- Authenticated Durable Object WebSockets for messages, presence, typing, ping, and read events.
+- R2 uploads with MIME and free/premium size validation.
+- Sinhala, Tamil, and English language fields plus responsive PWA shell.
+- Optional smart reply, translation, moderation, and message-search endpoints through Workers AI.
+- PBKDF2-SHA256 password hashing with 100,000 iterations and random 16-byte salts.
 
 ## Local development
 
-Create local secrets before starting:
-
 ```bash
 npm install
-printf 'JWT_SECRET=replace-me\n' > .dev.vars
+printf 'JWT_SECRET=replace-with-a-long-local-secret\n' > .dev.vars
 npm test
 npm run dev:local
 ```
 
-Use `npm run dev:local` on constrained environments. It avoids Wrangler's remote inspector/container path, which can fail with `FATAL ERROR: Out of memory` and `write EPIPE`. Workers AI uses the application's safe fallback responses when no local AI binding is available.
+Open the URL printed by Wrangler. The local runtime uses local D1/KV/R2 state. Workers AI falls back safely when the local AI binding is unavailable.
 
-### Termux or Ubuntu proot-distro on Android
+### Termux and Ubuntu proot-distro
 
-Android/Termux can hit the same memory failure in Wrangler's local `workerd`
-runtime. Use the remote runtime instead. These commands work in native
-Termux and in Ubuntu started with `proot-distro login ubuntu`:
+Android's local `workerd` runtime can fail with `FATAL ERROR: Out of memory` and `write EPIPE`. Use the remote runtime instead:
 
 ```bash
+# In native Termux, or after: proot-distro login ubuntu
 git clone https://github.com/Lakmal2078/inclusive-eyes-chatlk.git
 cd inclusive-eyes-chatlk
 npm run setup:termux
 npm run dev:termux
 ```
 
-`setup:termux` installs Node.js LTS, creates a random local `.dev.vars`, and
-runs the tests. `dev:termux` uses `wrangler dev --remote` and binds to the
-phone-accessible interface, avoiding the Android virtual-memory crash. See
-[`docs/INSTALLATION.md`](docs/INSTALLATION.md) for Cloudflare resource and
-troubleshooting details.
+The setup command detects native Termux versus Ubuntu and uses `pkg` or `apt` accordingly. The remote command requires a Cloudflare login and real remote resource IDs.
 
-The browser shell is served by `src/routes/frontend.js`; the client provides login/register, chat list, conversation view, message composer, PWA manifest, responsive layout, and WebSocket updates. User-entered text is escaped before rendering.
+## Cloudflare resources and deployment
 
-## Cloudflare resources
-
-Replace `YOUR_D1_DATABASE_ID` and `YOUR_KV_NAMESPACE_ID` in `wrangler.toml`, create the D1 database, KV namespace, and R2 bucket, then set the secret:
+Create resources, copy the returned IDs into `wrangler.toml`, and set the production secret:
 
 ```bash
-npx wrangler d1 create chat-db
-npx wrangler kv namespace create CACHE
-npx wrangler r2 bucket create chat-media
-npx wrangler secret put JWT_SECRET
+npm run db:create
+npm run kv:create
+npm run r2:create
+npm run secret:set
 npm run db:migrate
 npm run deploy
 ```
 
+For staging, configure the staging resource bindings and run:
+
+```bash
+npm run db:migrate:staging
+npm run deploy:staging
+```
+
+## API overview
+
+Public endpoints are `GET /api/health`, `POST /api/auth/register`, `POST /api/auth/login`, and `POST /api/auth/refresh` when a current authenticated context is available. All other `/api/*` routes require `Authorization: Bearer <token>`.
+
+The protected API includes `/api/users`, `/api/chats`, `/api/chats/:id/messages`, `/api/messages/:id`, `/api/media/upload`, `/api/media/:key`, and `/api/ai/{smart-reply,translate,moderate,search}`. The WebSocket endpoint is `/ws?userId=<id>&chatId=<id>&token=<jwt>`.
+
+## Tests and project layout
+
+```bash
+npm test
+npm run sync-assets
+```
+
+The ordered build is represented by `wrangler.toml`, the two migrations, helpers and middleware, routes, Durable Object, frontend shell, static assets, worker entrypoint, and this documentation. See [`docs/INSTALLATION.md`](docs/INSTALLATION.md) for operational details and [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for configuration guidance.
+
 ## Security notes
 
-Passwords use PBKDF2 with 100,000 SHA-256 iterations and a random 16-byte salt. JWTs expire after seven days and use `JWT_SECRET`. D1 operations use prepared statements. API responses include configurable CORS and KV-backed rate limiting. Production deployment must use a real secret and real Cloudflare resource IDs; placeholder IDs are intentionally retained in source control.
+All SQL values are bound through prepared statements. User-rendered message text is assigned through `textContent` in the browser. CORS is configurable through `CORS_ORIGIN`, KV applies ten-minute request buckets, WebSocket upgrades validate the JWT subject and chat membership, and media uploads validate MIME type and plan-specific size limits. Production deployments must replace placeholder resource IDs and use a strong secret stored with `wrangler secret put JWT_SECRET`.
