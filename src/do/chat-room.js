@@ -21,6 +21,9 @@ export class ChatRoom {
     if (data.type === 'ping') return socket.send(JSON.stringify({ type: 'pong' }));
     if (data.type === 'typing') return this.broadcast({ type: 'typing', userId: session.userId, chatId: session.chatId, isTyping: Boolean(data.isTyping) }, socket);
     if (data.type === 'read') { if (this.env.DB && data.messageId) await this.env.DB.prepare("UPDATE messages SET status = 'read' WHERE id = ?").bind(data.messageId).run(); return this.broadcast({ type: 'read', chatId: session.chatId, userId: session.userId, messageId: data.messageId }, socket); }
+    if (['call-offer', 'call-answer', 'ice-candidate', 'call-end'].includes(data.type)) {
+      return this.broadcast({ type: data.type, userId: session.userId, chatId: session.chatId, payload: data.payload || null }, socket);
+    }
     if (data.type !== 'message') return;
     const text = typeof data.text === 'string' ? data.text.trim().slice(0, 4096) : '';
     if (!text && !data.mediaUrl) return;
