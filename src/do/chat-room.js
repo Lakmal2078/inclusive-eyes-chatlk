@@ -25,8 +25,10 @@ export class ChatRoom {
     const text = typeof data.text === 'string' ? data.text.trim().slice(0, 4096) : '';
     if (!text && !data.mediaUrl) return;
     const id = crypto.randomUUID(), now = Date.now();
-    const message = { id, chatId: session.chatId, senderId: session.userId, text: text || null, messageType: data.messageType || 'text', mediaUrl: data.mediaUrl || null, status: 'sent', createdAt: now };
-    if (this.env.DB) { await this.env.DB.prepare('INSERT INTO messages (id, chat_id, sender_id, text, message_type, media_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(id, session.chatId, session.userId, message.text, message.messageType, message.mediaUrl, now).run(); await this.env.DB.prepare('UPDATE chats SET updated_at = ? WHERE id = ?').bind(now, session.chatId).run(); }
+    const hasOtherParticipant = [...this.sessions.values()].some(item => item.chatId === session.chatId && item.userId !== session.userId);
+    const status = hasOtherParticipant ? 'delivered' : 'sent';
+    const message = { id, chatId: session.chatId, senderId: session.userId, text: text || null, messageType: data.messageType || 'text', mediaUrl: data.mediaUrl || null, status, createdAt: now };
+    if (this.env.DB) { await this.env.DB.prepare('INSERT INTO messages (id, chat_id, sender_id, text, message_type, media_url, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(id, session.chatId, session.userId, message.text, message.messageType, message.mediaUrl, status, now).run(); await this.env.DB.prepare('UPDATE chats SET updated_at = ? WHERE id = ?').bind(now, session.chatId).run(); }
     // Deliver to the sender as well as other participants so the UI stays
     // consistent for real-time sends (the REST fallback remains unchanged).
     this.broadcast({ type: 'message', message });
