@@ -9,7 +9,7 @@ export async function getChatRole(db, chatId, userId) {
 }
 
 export async function getChatParticipants(db, chatId) {
-  const result = await db.prepare(`SELECT u.id, u.username, u.display_name, u.avatar_url, cp.role, cp.joined_at, cp.last_read_message_id
+  const result = await db.prepare(`SELECT u.id, u.username, u.phone, u.display_name, u.avatar_url, u.bio, u.language, u.last_seen, u.is_verified, cp.role, cp.joined_at, cp.last_read_message_id
     FROM chat_participants cp JOIN users u ON u.id = cp.user_id WHERE cp.chat_id = ? ORDER BY cp.joined_at`).bind(chatId).all();
   return result.results || [];
 }
