@@ -5,6 +5,7 @@ import { dbService } from '../services/database.js';
 export class ChatRoom {
   constructor(state, env) {
     this.state = state;
+    this.ctx = state;
     this.env = env;
     this.sessions = new Map(); // socket -> { userId, chatId, username, typingTimer }
   }
@@ -15,8 +16,8 @@ export class ChatRoom {
     }
 
     const url = new URL(request.url);
-    const userId = url.searchParams.get('userId');
-    const chatId = url.searchParams.get('chatId');
+    const userId = request.headers.get('X-User-Id') || url.searchParams.get('userId');
+    const chatId = request.headers.get('X-Chat-Id') || url.searchParams.get('chatId');
     const token = url.searchParams.get('token');
 
     if (!userId || !chatId || !token) {
@@ -49,7 +50,9 @@ export class ChatRoom {
 
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
-    server.accept();
+    // Hibernation API: the DO can sleep while this socket remains connected.
+    this.ctx.acceptWebSocket(server);
+    server.serializeAttachment({ userId, chatId });
 
     this.sessions.set(server, { userId, chatId, username, typingTimer: null });
 
@@ -67,19 +70,37 @@ export class ChatRoom {
       lastSeen: nowIso
     });
 
-    server.addEventListener('message', event => {
-      this.handleEvent(server, event.data).catch(error =>
-        console.error('[ChatRoom] WebSocket event error:', error)
-      );
-    });
+    return new Response(null, { status: 101, webSocket: client });
+  }
 
-    server.addEventListener('close', async () => {
+  async webSocketMessage(server, message) {
+    // Rebuild transient state after a hibernation wake-up.
+    if (!this.sessions.has(server)) {
+      const attachment = server.deserializeAttachment() || {};
+      this.sessions.set(server, {
+        ...attachment,
+        username: 'User',
+        typingTimer: null
+      });
+    }
+    try {
+      await this.handleEvent(server, message);
+    } catch (error) {
+      console.error('[ChatRoom] WebSocket event error:', error);
+    }
+  }
+
+  async webSocketClose(server) {
+      const attachment = server.deserializeAttachment() || {};
+      const userId = attachment.userId;
+      const chatId = attachment.chatId;
       const session = this.sessions.get(server);
       if (session?.typingTimer) clearTimeout(session.typingTimer);
       this.sessions.delete(server);
 
       // Check if user still has other active sockets in this room
-      const userHasOtherSockets = [...this.sessions.values()].some(s => s.userId === userId);
+      const userHasOtherSockets = [...this.sessions.values()].some(s => s.userId === userId)
+        || this.ctx.getWebSockets().some(ws => ws !== server && ws.deserializeAttachment()?.userId === userId);
       if (!userHasOtherSockets && this.env.DB) {
         await dbService.updateUserPresence(this.env.DB, userId, false);
       }
@@ -93,9 +114,11 @@ export class ChatRoom {
         status: 'offline',
         lastSeen: disconnectIso
       });
-    });
+  }
 
-    return new Response(null, { status: 101, webSocket: client });
+  async webSocketError(server, error) {
+    console.error('[ChatRoom] WebSocket error:', error);
+    try { server.close(1011, 'WebSocket error'); } catch {}
   }
 
   async handleEvent(socket, raw) {
@@ -339,7 +362,8 @@ export class ChatRoom {
 
   broadcast(message, exclude) {
     const encoded = JSON.stringify(message);
-    for (const [socket] of this.sessions) {
+    const sockets = this.ctx?.getWebSockets ? this.ctx.getWebSockets() : [...this.sessions.keys()];
+    for (const socket of sockets) {
       if (socket !== exclude && socket.readyState === WebSocket.OPEN) {
         try {
           socket.send(encoded);

@@ -48,7 +48,11 @@ app.get('/ws', async c => {
   }
 
   const id = c.env.CHAT_ROOM.idFromName(chatId);
-  return c.env.CHAT_ROOM.get(id).fetch(c.req.raw);
+  const headers = new Headers(c.req.raw.headers);
+  headers.set('X-User-Id', userId);
+  headers.set('X-Chat-Id', chatId);
+  const doRequest = new Request(c.req.raw, { headers });
+  return c.env.CHAT_ROOM.get(id).fetch(doRequest);
 });
 
 // Protected routes (JWT authentication required)
@@ -59,8 +63,10 @@ app.route('/api/users', userRoutes);
 app.route('/api/statuses', statusRoutes);
 app.route('/api/chats', chatRoutes);
 app.route('/api/groups', groupRoutes);
-app.route('/api/messages', messageRoutes);
-app.route('/api/reactions', reactionRoutes);
+// messageRoutes contains both /messages/* and /chats/* resources.
+// Mount at /api so public paths remain /api/messages/* and /api/chats/*.
+app.route('/api', messageRoutes);
+app.route('/api/messages', reactionRoutes);
 app.route('/api/search', searchRoutes);
 app.route('/api/push', pushRoutes);
 app.route('/api/admin', adminRoutes);

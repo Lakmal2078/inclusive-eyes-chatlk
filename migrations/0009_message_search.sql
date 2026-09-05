@@ -5,5 +5,6 @@ CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
   content,
   sender_id,
   chat_id,
-  created_at
+  created_at,
+  message_id UNINDEXED
 );
