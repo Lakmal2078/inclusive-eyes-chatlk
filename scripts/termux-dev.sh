@@ -18,6 +18,7 @@ if [[ ! -f .dev.vars ]]; then
   echo "Created .dev.vars with a random local JWT secret."
 fi
 
-# Android/Termux can fail while Wrangler starts its local workerd binary with
-# a 1 GiB virtual-memory allocation. Remote mode keeps that runtime off-phone.
-exec npx wrangler dev --remote --inspector-port 0 --ip 0.0.0.0 "$@"
+# Android/proot can fail while Wrangler or esbuild starts a 1 GiB virtual-memory
+# allocation. Remote no-bundle mode keeps both the local workerd and bundler out
+# of the phone; Wrangler sends the module Worker directly to the remote preview.
+exec npx wrangler dev --remote --no-bundle --inspector-port 0 --ip 0.0.0.0 "$@"
