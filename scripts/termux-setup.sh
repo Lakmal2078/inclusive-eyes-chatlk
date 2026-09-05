@@ -1,13 +1,17 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -Eeuo pipefail
 
-if [[ -z "${PREFIX:-}" || ! -d "$PREFIX" ]]; then
-  echo "This script must be run inside Termux on Android." >&2
+if [[ -n "${PREFIX:-}" && -d "$PREFIX" ]] && command -v pkg >/dev/null 2>&1; then
+  pkg update -y
+  pkg install -y nodejs-lts git
+elif command -v apt-get >/dev/null 2>&1; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -y
+  apt-get install -y nodejs npm git ca-certificates
+else
+  echo "Run this script in Termux or Ubuntu inside proot-distro." >&2
   exit 1
 fi
-
-pkg update -y
-pkg install -y nodejs-lts git
 
 if [[ ! -f package.json ]]; then
   echo "Run this script from the inclusive-eyes-chatlk project directory." >&2

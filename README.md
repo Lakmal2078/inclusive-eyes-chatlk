@@ -15,10 +15,11 @@ npm run dev:local
 
 Use `npm run dev:local` on constrained environments. It avoids Wrangler's remote inspector/container path, which can fail with `FATAL ERROR: Out of memory` and `write EPIPE`. Workers AI uses the application's safe fallback responses when no local AI binding is available.
 
-### Termux on Android
+### Termux or Ubuntu proot-distro on Android
 
 Android/Termux can hit the same memory failure in Wrangler's local `workerd`
-runtime. Use the remote runtime instead:
+runtime. Use the remote runtime instead. These commands work in native
+Termux and in Ubuntu started with `proot-distro login ubuntu`:
 
 ```bash
 git clone https://github.com/Lakmal2078/inclusive-eyes-chatlk.git

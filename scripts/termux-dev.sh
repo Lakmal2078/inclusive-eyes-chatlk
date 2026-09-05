@@ -1,8 +1,8 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -Eeuo pipefail
 
-if [[ -z "${PREFIX:-}" || ! -d "$PREFIX" ]]; then
-  echo "This script must be run inside Termux on Android." >&2
+if [[ -z "${PREFIX:-}" && ! -f /etc/debian_version ]]; then
+  echo "Run this script in Termux or Ubuntu inside proot-distro." >&2
   exit 1
 fi
 

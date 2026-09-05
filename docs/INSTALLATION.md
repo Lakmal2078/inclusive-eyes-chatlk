@@ -60,7 +60,7 @@ Use `wrangler dev --cwd ./dist --port 3000` to change the preview port.
 - `/register` creates an account and shows the "confirm your email" message
 - `/admin` asks for admin credentials
 
-## Running in Termux (Android)
+## Running in Termux or Ubuntu inside proot-distro (Android)
 
 The local Wrangler runtime (`wrangler dev --local`) can crash on Android/Termux
 while allocating a 1 GiB virtual-memory region. The reported `FATAL ERROR: Out
@@ -69,11 +69,32 @@ by the missing `.env.local` warning. This project therefore uses Wrangler's
 remote Worker runtime by default on Termux.
 
 Install Termux from [F-Droid](https://f-droid.org/packages/com.termux/) or the
-official Termux source, then run:
+official Termux source. For a native Termux shell, run:
 
 ```bash
 pkg update -y
 pkg install -y git
+git clone https://github.com/Lakmal2078/inclusive-eyes-chatlk.git
+cd inclusive-eyes-chatlk
+npm run setup:termux
+npm run dev:termux
+```
+
+If you use Ubuntu through `proot-distro`, enter Ubuntu first and run the same
+project commands there. The setup script automatically detects Ubuntu and
+uses `apt` instead of Termux's `pkg`:
+
+```bash
+proot-distro login ubuntu
+cd ~/inclusive-eyes-chatlk
+npm run setup:termux
+npm run dev:termux
+```
+
+If the repository is not yet inside Ubuntu, clone it after entering Ubuntu:
+
+```bash
+apt update && apt install -y git
 git clone https://github.com/Lakmal2078/inclusive-eyes-chatlk.git
 cd inclusive-eyes-chatlk
 npm run setup:termux
