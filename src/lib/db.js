@@ -1,0 +1,3 @@
+export async function isChatParticipant(db, chatId, userId) { const row = await db.prepare('SELECT 1 FROM chat_participants WHERE chat_id=? AND user_id=?').bind(chatId,userId).first(); return Boolean(row); }
+export async function getChatParticipants(db, chatId) { return (await db.prepare('SELECT u.id,u.username,u.display_name,u.avatar_url,cp.role FROM chat_participants cp JOIN users u ON u.id=cp.user_id WHERE cp.chat_id=?').bind(chatId).all()).results; }
+export async function requireParticipant(db, chatId, userId) { if (!await isChatParticipant(db,chatId,userId)) throw new Error('Not a participant'); }

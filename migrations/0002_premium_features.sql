@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS sticker_packs (id TEXT PRIMARY KEY, name TEXT NOT NULL, creator_id TEXT NOT NULL, price INTEGER DEFAULT 0, is_premium INTEGER DEFAULT 0, cover_url TEXT, created_at INTEGER NOT NULL, FOREIGN KEY(creator_id) REFERENCES users(id));
+CREATE TABLE IF NOT EXISTS stickers (id TEXT PRIMARY KEY, pack_id TEXT NOT NULL, file_url TEXT NOT NULL, emoji TEXT, sort_order INTEGER DEFAULT 0, FOREIGN KEY(pack_id) REFERENCES sticker_packs(id));
+CREATE TABLE IF NOT EXISTS user_sticker_purchases (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, pack_id TEXT NOT NULL, purchased_at INTEGER NOT NULL, UNIQUE(user_id,pack_id));
+CREATE TABLE IF NOT EXISTS channels (id TEXT PRIMARY KEY, name TEXT NOT NULL, owner_id TEXT NOT NULL, description TEXT, subscriber_count INTEGER DEFAULT 0, is_verified INTEGER DEFAULT 0, created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS channel_subscriptions (id TEXT PRIMARY KEY, channel_id TEXT NOT NULL, user_id TEXT NOT NULL, subscribed_at INTEGER NOT NULL, UNIQUE(channel_id,user_id));
+CREATE TABLE IF NOT EXISTS premium_subscriptions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, plan TEXT NOT NULL, started_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, is_active INTEGER DEFAULT 1);

@@ -1,0 +1,5 @@
+import { Hono } from 'hono';
+export const aiRoutes=new Hono();
+aiRoutes.post('/smart-reply',async c=>{const {text}=await c.req.json();if(!c.env.AI)return c.json({replies:['Sounds good!','Thanks for letting me know.','I will get back to you soon.']});const r=await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct',{messages:[{role:'system',content:'Return exactly three concise reply suggestions as a JSON array.'},{role:'user',content:text}]});return c.json({replies:r.response});});
+aiRoutes.post('/translate',async c=>{const b=await c.req.json();if(!c.env.AI)return c.json({text:b.text});return c.json(await c.env.AI.run('@cf/meta/m2m100-1.2b',{text:b.text,source_lang:b.source_lang||'en',target_lang:b.target_lang||'si'}));});
+aiRoutes.post('/moderate',async c=>{const {text}=await c.req.json();if(!c.env.AI)return c.json({label:'clean',safe:true});const r=await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct',{messages:[{role:'system',content:'Classify as exactly spam, profanity, or clean.'},{role:'user',content:text}]});const label=(r.response||'clean').toLowerCase().trim();return c.json({label,safe:label==='clean'});});

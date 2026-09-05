@@ -1,0 +1,40 @@
+name = "chatlk"
+main = "src/index.js"
+compatibility_date = "2026-09-04"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "chat-db"
+database_id = "YOUR_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "YOUR_KV_NAMESPACE_ID"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "chat-media"
+
+[[durable_objects.bindings]]
+name = "CHAT_ROOM"
+class_name = "ChatRoom"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["ChatRoom"]
+
+[ai]
+binding = "AI"
+
+[vars]
+APP_NAME = "ChatLK"
+SUPPORTED_LANGUAGES = "si,ta,en"
+MAX_FILE_SIZE_MB = "100"
+PREMIUM_MAX_FILE_SIZE_MB = "500"
+CORS_ORIGIN = "*"
+
+[env.staging]
+name = "chatlk-staging"
+vars = { ENVIRONMENT = "staging", APP_NAME = "ChatLK Staging", CORS_ORIGIN = "https://staging.chatlk.example" }

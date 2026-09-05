@@ -1,0 +1,2 @@
+import { html } from 'hono/html';
+export const serveFrontend=c=>c.html(html`<!doctype html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="theme-color" content="#0b141a"/><link rel="manifest" href="/manifest.json"/><link rel="stylesheet" href="/style.css"/><title>ChatLK — conversations that feel close</title></head><body><main id="app"></main><script src="/app.js" type="module"></script></body></html>`);
