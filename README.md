@@ -15,6 +15,24 @@ npm run dev:local
 
 Use `npm run dev:local` on constrained environments. It avoids Wrangler's remote inspector/container path, which can fail with `FATAL ERROR: Out of memory` and `write EPIPE`. Workers AI uses the application's safe fallback responses when no local AI binding is available.
 
+### Termux on Android
+
+Android/Termux can hit the same memory failure in Wrangler's local `workerd`
+runtime. Use the remote runtime instead:
+
+```bash
+git clone https://github.com/Lakmal2078/inclusive-eyes-chatlk.git
+cd inclusive-eyes-chatlk
+npm run setup:termux
+npm run dev:termux
+```
+
+`setup:termux` installs Node.js LTS, creates a random local `.dev.vars`, and
+runs the tests. `dev:termux` uses `wrangler dev --remote` and binds to the
+phone-accessible interface, avoiding the Android virtual-memory crash. See
+[`docs/INSTALLATION.md`](docs/INSTALLATION.md) for Cloudflare resource and
+troubleshooting details.
+
 The browser shell is served by `src/routes/frontend.js`; the client provides login/register, chat list, conversation view, message composer, PWA manifest, responsive layout, and WebSocket updates. User-entered text is escaped before rendering.
 
 ## Cloudflare resources

@@ -1,5 +1,5 @@
 {
   "name":"chatlk","version":"1.0.0","private":true,"type":"module",
-  "scripts":{"dev":"wrangler dev","dev:local":"wrangler dev --local --inspector-port 0","deploy":"wrangler deploy","deploy:staging":"wrangler deploy --env staging","db:migrate":"wrangler d1 migrations apply chat-db","test":"node --test tests/*.test.js"},
+  "scripts":{"dev":"wrangler dev","dev:local":"wrangler dev --local --inspector-port 0","dev:termux":"bash scripts/termux-dev.sh","setup:termux":"bash scripts/termux-setup.sh","deploy":"wrangler deploy","deploy:staging":"wrangler deploy --env staging","db:migrate":"wrangler d1 migrations apply chat-db","test":"node --test tests/*.test.js"},
   "dependencies":{"hono":"^4.6.0"},"devDependencies":{"wrangler":"^4.125.0"}
 }

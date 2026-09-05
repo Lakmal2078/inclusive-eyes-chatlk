@@ -4,8 +4,8 @@
 
 - Node.js 20 or newer (`node --version`)
 - npm 10+ (or Bun 1.1+)
-- A Lovable Cloud backend (already provisioned for this project) or your own Postgres/Supabase-compatible backend
-- Internet access — the frontend talks directly to the hosted backend
+- Internet access
+- Cloudflare account access for remote development and deployment
 
 ## 1. Get the code
 
@@ -41,9 +41,7 @@ The export already contains a working `.env`. If it is missing, create one — s
 npm run dev
 ```
 
-Open http://localhost:8080
-
-Change the port with `PORT=3000 npm run dev`.
+Open the URL printed by Wrangler. For a local Worker, use `npm run dev:local`.
 
 ## 5. Run the production build locally
 
@@ -64,25 +62,46 @@ Use `wrangler dev --cwd ./dist --port 3000` to change the preview port.
 
 ## Running in Termux (Android)
 
+The local Wrangler runtime (`wrangler dev --local`) can crash on Android/Termux
+while allocating a 1 GiB virtual-memory region. The reported `FATAL ERROR: Out
+of memory` followed by `write EPIPE` is that runtime failure; it is not caused
+by the missing `.env.local` warning. This project therefore uses Wrangler's
+remote Worker runtime by default on Termux.
+
+Install Termux from [F-Droid](https://f-droid.org/packages/com.termux/) or the
+official Termux source, then run:
+
 ```bash
-pkg update && pkg upgrade -y
-pkg install nodejs-lts git unzip -y
-termux-setup-storage
-cd ~ && cp /sdcard/Download/fast-cash-project.zip .
-unzip fast-cash-project.zip -d fast-cash && cd fast-cash
-npm install --legacy-peer-deps
-npm run dev
+pkg update -y
+pkg install -y git
+git clone https://github.com/Lakmal2078/inclusive-eyes-chatlk.git
+cd inclusive-eyes-chatlk
+npm run setup:termux
+npm run dev:termux
 ```
 
-Then open http://localhost:8080 in the phone browser.
+The setup script installs Node.js LTS, creates a random `.dev.vars` file, and
+runs the tests. The first `npm run dev:termux` may open a Cloudflare login
+flow. Complete it, then open the URL Wrangler prints. Keep Termux open while
+the server is running. Stop it with `Ctrl+C`.
+
+Remote mode needs real Cloudflare resources configured in `wrangler.toml`
+(D1, KV, R2, and Durable Objects). It is the recommended mode for a phone. On
+a normal Linux/macOS computer, local development remains available with:
+
+```bash
+npm run dev:local
+```
+
+Do not use `npm install --ignore-scripts` for this project: Wrangler's
+platform runtime is installed through npm optional dependencies.
 
 ## Troubleshooting
 
 | Symptom                                    | Fix                                                                                    |
 | ------------------------------------------ | -------------------------------------------------------------------------------------- |
-| `Missing Supabase environment variable(s)` | `.env` missing or misspelled keys — see ENVIRONMENT.md, then restart dev server        |
-| `Failed to fetch` on register/deposit      | No internet or a firewall/VPN blocking the backend domain                              |
-| Build runs out of memory                   | `NODE_OPTIONS=--max-old-space-size=2048 npm run build`                                 |
-| Port already in use                        | `PORT=3000 npm run dev`                                                                |
-| OCR never finishes                         | Tesseract needs a browser; check the tab is not throttled and the image is under ~5 MB |
-| Blank page after edits                     | Stop the dev server, delete `node_modules/.vite`, restart                              |
+| `FATAL ERROR: Out of memory` / `write EPIPE` in Termux | Use `npm run dev:termux`; do not use `npm run dev:local` on Android |
+| Wrangler asks you to log in                 | Complete the Cloudflare login in the shown URL, then rerun the command |
+| Remote bindings are missing                 | Replace placeholder D1/KV IDs and create the R2 bucket; see `README.md` |
+| `Missing .dev.vars`                          | Run `npm run setup:termux` or create `JWT_SECRET=...` in `.dev.vars` |
+| Port already in use                         | Pass another port: `npm run dev:termux -- --port 8788` |
