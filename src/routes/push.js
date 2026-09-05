@@ -12,7 +12,7 @@ const pushRoutes = new Hono();
  */
 pushRoutes.get('/vapid-key', c => {
   return c.json({
-    publicKey: c.env.VAPID_PUBLIC_KEY || 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSg SnmpGzU8='
+    publicKey: c.env.VAPID_PUBLIC_KEY || 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnmpGzU8='
   });
 });
 

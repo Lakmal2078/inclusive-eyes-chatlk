@@ -35,6 +35,7 @@ MAX_FILE_SIZE_MB = "100"
 PREMIUM_MAX_FILE_SIZE_MB = "500"
 CORS_ORIGIN = "https://chatlk.agent-1xfast-srilanka.workers.dev"
 VAPID_PUBLIC_KEY = "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnmpGzU8="
+VAPID_SUBJECT = "mailto:admin@chatlk.app"
 
 [env.staging]
 name = "chatlk-staging"
