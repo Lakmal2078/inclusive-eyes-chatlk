@@ -33,7 +33,22 @@ function createD1Database(dbPath = './data/chatlk.db') {
         .sort();
       for (const file of files) {
         const sql = readFileSync(join(migrationsDir, file), 'utf8');
-        db.exec(sql);
+        const statements = sql
+          .split(';')
+          .map(s => s.trim())
+          .filter(s => s.length > 0);
+        for (const statement of statements) {
+          try {
+            db.exec(statement + ';');
+          } catch (err) {
+            if (
+              !err.message.includes('duplicate column') &&
+              !err.message.includes('already exists')
+            ) {
+              console.warn(`[ChatLK] Migration statement note in ${file}:`, err.message);
+            }
+          }
+        }
       }
     }
   } catch (err) {

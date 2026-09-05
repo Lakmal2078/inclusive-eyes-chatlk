@@ -1,11 +1,64 @@
 import { Hono } from 'hono';
 import { deleteFile, uploadFile } from '../lib/r2.js';
 import { generateId, jsonBody, mediaExtension, publicUser } from '../lib/utils.js';
+import { dbService } from '../services/database.js';
 
 export const userRoutes = new Hono();
 
-userRoutes.get('/me', async c => c.json(publicUser(await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(c.get('userId')).first())));
+/**
+ * GET /api/users/me - Get current user profile
+ */
+userRoutes.get('/me', async c => {
+  const user = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(c.get('userId')).first();
+  return c.json(publicUser(user));
+});
 
+/**
+ * PATCH /api/users/me - Update own profile (displayName, bio, autoTranslate, language)
+ */
+userRoutes.patch('/me', async c => {
+  const body = await jsonBody(c);
+  if (!body) return c.json({ error: 'Invalid body' }, 400);
+
+  const displayName = body.displayName || body.display_name;
+  const bio = body.bio;
+  const autoTranslate = body.autoTranslate !== undefined ? (body.autoTranslate ? 1 : 0) : body.auto_translate;
+  const language = body.language;
+
+  const fields = [];
+  const values = [];
+
+  if (displayName !== undefined && typeof displayName === 'string') {
+    fields.push('display_name = ?');
+    values.push(displayName.trim().slice(0, 80));
+  }
+  if (bio !== undefined) {
+    fields.push('bio = ?');
+    values.push(typeof bio === 'string' ? bio.trim().slice(0, 500) : null);
+  }
+  if (autoTranslate !== undefined) {
+    fields.push('auto_translate = ?');
+    values.push(autoTranslate ? 1 : 0);
+  }
+  if (language && ['si', 'ta', 'en'].includes(language)) {
+    fields.push('language = ?');
+    values.push(language);
+  }
+
+  if (fields.length > 0) {
+    fields.push('updated_at = ?');
+    values.push(Date.now());
+    values.push(c.get('userId'));
+    await c.env.DB.prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`).bind(...values).run();
+  }
+
+  const updated = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(c.get('userId')).first();
+  return c.json({ user: publicUser(updated) });
+});
+
+/**
+ * PUT /api/users/me - Backward-compatible profile update
+ */
 userRoutes.put('/me', async c => {
   const body = await jsonBody(c);
   if (!body || (body.language && !['si', 'ta', 'en'].includes(body.language))) return c.json({ error: 'Invalid profile data' }, 400);
@@ -14,17 +67,109 @@ userRoutes.put('/me', async c => {
   return c.json({ user: publicUser(await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(c.get('userId')).first()) });
 });
 
+/**
+ * POST /api/users/me/avatar - Upload avatar to R2
+ */
 userRoutes.post('/me/avatar', async c => {
   const form = await c.req.formData();
   const file = form.get('file');
-  if (!(file instanceof File) || !/^image\/(jpeg|png|webp|gif)$/.test(file.type) || file.size > 5 * 1024 * 1024) return c.json({ error: 'Avatar must be an image up to 5MB' }, 400);
+  if (!(file instanceof File) || !/^image\/(jpeg|png|webp|gif)$/.test(file.type) || file.size > 5 * 1024 * 1024) {
+    return c.json({ error: 'Avatar must be an image up to 5MB' }, 400);
+  }
   const key = `avatars/${c.get('userId')}/${Date.now()}-${generateId()}.${mediaExtension(file.name)}`;
   await uploadFile(c.env, key, file.stream(), file.type, { userId: c.get('userId') });
   const url = `/api/media/${key}`;
   await c.env.DB.prepare('UPDATE users SET avatar_url = ?, updated_at = ? WHERE id = ?').bind(url, Date.now(), c.get('userId')).run();
-  return c.json({ url }, 201);
+  return c.json({ url, avatarUrl: url }, 201);
 });
 
+/**
+ * DELETE /api/users/me/avatar - Remove avatar
+ */
+userRoutes.delete('/me/avatar', async c => {
+  const user = await c.env.DB.prepare('SELECT avatar_url FROM users WHERE id = ?').bind(c.get('userId')).first();
+  if (user?.avatar_url && user.avatar_url.startsWith('/api/media/')) {
+    const key = user.avatar_url.replace('/api/media/', '');
+    try { await deleteFile(c.env, key); } catch {}
+  }
+  await c.env.DB.prepare('UPDATE users SET avatar_url = NULL, updated_at = ? WHERE id = ?').bind(Date.now(), c.get('userId')).run();
+  return c.json({ success: true, message: 'Avatar removed' });
+});
+
+/**
+ * GET /api/users/blocked - List blocked users (Feature 13)
+ */
+userRoutes.get('/blocked', async c => {
+  const userId = c.get('userId');
+  const blocked = await dbService.getBlockedUsers(c.env.DB, userId);
+  return c.json({ blockedUsers: blocked });
+});
+
+/**
+ * GET /api/users/:id/presence - Get user online/presence status (Feature 6)
+ */
+userRoutes.get('/:id/presence', async c => {
+  const targetId = c.req.param('id');
+  const user = await c.env.DB.prepare(
+    'SELECT id, is_online, last_seen FROM users WHERE id = ?'
+  ).bind(targetId).first();
+
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+
+  return c.json({
+    userId: user.id,
+    isOnline: Boolean(user.is_online),
+    lastSeen: user.last_seen || null
+  });
+});
+
+/**
+ * POST /api/users/:id/block - Block a user (Feature 13)
+ */
+userRoutes.post('/:id/block', async c => {
+  const blockerId = c.get('userId');
+  const blockedId = c.req.param('id');
+
+  if (blockerId === blockedId) {
+    return c.json({ error: 'Cannot block yourself' }, 400);
+  }
+
+  await dbService.blockUser(c.env.DB, blockerId, blockedId);
+  return c.json({ success: true, message: 'User blocked' });
+});
+
+/**
+ * DELETE /api/users/:id/block - Unblock a user (Feature 13)
+ */
+userRoutes.delete('/:id/block', async c => {
+  const blockerId = c.get('userId');
+  const blockedId = c.req.param('id');
+
+  await dbService.unblockUser(c.env.DB, blockerId, blockedId);
+  return c.json({ success: true, message: 'User unblocked' });
+});
+
+/**
+ * GET /api/users/:id - Get user profile (Feature 8)
+ */
+userRoutes.get('/:id', async c => {
+  const id = c.req.param('id');
+  const user = await c.env.DB.prepare(
+    'SELECT id, username, display_name, avatar_url, bio, role, is_online, last_seen, created_at FROM users WHERE id = ?'
+  ).bind(id).first();
+
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+
+  return c.json({ user });
+});
+
+/**
+ * Existing search and contacts
+ */
 userRoutes.get('/search', async c => {
   const query = (c.req.query('q') || '').trim().slice(0, 40);
   if (query.length < 2) return c.json({ users: [] });

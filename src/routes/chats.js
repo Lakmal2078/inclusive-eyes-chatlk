@@ -1,10 +1,12 @@
 import { Hono } from 'hono';
 import { getChatParticipants, getChatRole, assertParticipant } from '../lib/db.js';
 import { generateId, jsonBody } from '../lib/utils.js';
+import { dbService } from '../services/database.js';
+import { getSmartReplySuggestions } from '../services/ai.js';
 
 export const chatRoutes = new Hono();
 
-  chatRoutes.get('/', async c => {
+chatRoutes.get('/', async c => {
   const result = await c.env.DB.prepare(`SELECT ch.*, cp.role,
     (SELECT text FROM messages m WHERE m.chat_id = ch.id AND m.is_deleted = 0 ORDER BY m.created_at DESC LIMIT 1) AS last_message,
     (SELECT sender_id FROM messages m WHERE m.chat_id = ch.id AND m.is_deleted = 0 ORDER BY m.created_at DESC LIMIT 1) AS last_message_sender_id,
@@ -29,10 +31,66 @@ chatRoutes.post('/', async c => {
   return c.json({ id, type, participants }, 201);
 });
 
+/**
+ * GET /api/chats/:chatId/pinned - List pinned messages (Feature 12)
+ */
+chatRoutes.get('/:id/pinned', async c => {
+  const chatId = c.req.param('id');
+  try { await assertParticipant(c.env.DB, chatId, c.get('userId')); } catch (e) { return c.json({ error: e.message }, 403); }
+  const pinned = await dbService.getPinnedMessages(c.env.DB, chatId);
+  return c.json({ chatId, pinned });
+});
+
+/**
+ * GET /api/chats/:chatId/suggestions - Smart reply suggestions (Feature 11)
+ */
+chatRoutes.get('/:id/suggestions', async c => {
+  const chatId = c.req.param('id');
+  try { await assertParticipant(c.env.DB, chatId, c.get('userId')); } catch (e) { return c.json({ error: e.message }, 403); }
+
+  const user = await c.env.DB.prepare('SELECT language FROM users WHERE id = ?').bind(c.get('userId')).first();
+  const recent = await c.env.DB.prepare(
+    'SELECT text, sender_id FROM messages WHERE chat_id = ? AND is_deleted = 0 ORDER BY created_at DESC LIMIT 5'
+  ).bind(chatId).all();
+
+  const messages = (recent.results || []).reverse();
+  const suggestions = await getSmartReplySuggestions(c.env, chatId, messages, user?.language || 'en');
+
+  return c.json({ chatId, suggestions });
+});
+
+/**
+ * POST /api/chats/:chatId/mute - Mute chat (Feature 13)
+ */
+chatRoutes.post('/:id/mute', async c => {
+  const chatId = c.req.param('id');
+  const userId = c.get('userId');
+  try { await assertParticipant(c.env.DB, chatId, userId); } catch (e) { return c.json({ error: e.message }, 403); }
+
+  await dbService.muteChat(c.env.DB, userId, chatId);
+  return c.json({ success: true, message: 'Chat muted' });
+});
+
+/**
+ * DELETE /api/chats/:chatId/mute - Unmute chat (Feature 13)
+ */
+chatRoutes.delete('/:id/mute', async c => {
+  const chatId = c.req.param('id');
+  const userId = c.get('userId');
+
+  await dbService.unmuteChat(c.env.DB, userId, chatId);
+  return c.json({ success: true, message: 'Chat unmuted' });
+});
+
 chatRoutes.get('/:id', async c => {
   try { await assertParticipant(c.env.DB, c.req.param('id'), c.get('userId')); } catch (error) { return c.json({ error: error.message }, error.status || 403); }
   const chat = await c.env.DB.prepare('SELECT * FROM chats WHERE id = ?').bind(c.req.param('id')).first();
-  return c.json({ chat, participants: await getChatParticipants(c.env.DB, c.req.param('id')) });
+  const isMuted = await dbService.isChatMuted(c.env.DB, c.get('userId'), c.req.param('id'));
+  return c.json({
+    chat,
+    isMuted,
+    participants: await getChatParticipants(c.env.DB, c.req.param('id'))
+  });
 });
 
 chatRoutes.put('/:id', async c => {

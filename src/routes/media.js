@@ -1,11 +1,12 @@
 import { Hono } from 'hono';
 import { deleteFile, getFile, uploadFile } from '../lib/r2.js';
 import { generateId, mediaExtension } from '../lib/utils.js';
+import { uploadRateLimiter } from '../middleware/rateLimit.js';
 
 export const mediaRoutes = new Hono();
 const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'audio/ogg', 'audio/mp4', 'audio/webm', 'application/pdf']);
 
-mediaRoutes.post('/upload', async c => {
+mediaRoutes.post('/upload', uploadRateLimiter, async c => {
   const form = await c.req.formData();
   const file = form.get('file');
   if (!(file instanceof File) || !allowed.has(file.type)) return c.json({ error: 'Unsupported file type' }, 400);

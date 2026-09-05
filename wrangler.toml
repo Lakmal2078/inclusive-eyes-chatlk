@@ -34,6 +34,7 @@ SUPPORTED_LANGUAGES = "si,ta,en"
 MAX_FILE_SIZE_MB = "100"
 PREMIUM_MAX_FILE_SIZE_MB = "500"
 CORS_ORIGIN = "*"
+VAPID_PUBLIC_KEY = "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnmpGzU8="
 
 [env.staging]
 name = "chatlk-staging"
