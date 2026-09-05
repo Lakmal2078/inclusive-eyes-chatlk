@@ -12,3 +12,17 @@ await esbuild.build({
   format: 'esm',
   jsx: 'automatic'
 });
+
+await esbuild.build({
+  entryPoints: ['src/components/ChatSettings.tsx'],
+  outfile: 'src/components/ChatSettings.js',
+  format: 'esm',
+  jsx: 'automatic'
+});
+
+await esbuild.build({
+  entryPoints: ['src/components/UserPresenceStatus.tsx'],
+  outfile: 'src/components/UserPresenceStatus.js',
+  format: 'esm',
+  jsx: 'automatic'
+});

@@ -1,5 +1,6 @@
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { UserPresenceStatus } from "./UserPresenceStatus.js";
 const COMMON_EMOJIS = ["\u{1F44D}", "\u2764\uFE0F", "\u{1F602}", "\u{1F62E}", "\u{1F622}", "\u{1F64F}"];
 const ChatRoom = ({
   chatId = "chat-default",
@@ -7,6 +8,8 @@ const ChatRoom = ({
   chatAvatarUrl,
   chatType = "direct",
   statusText = "Online",
+  peerUserId,
+  isOnline,
   currentUserId,
   messages = [],
   onSendMessage,
@@ -181,11 +184,20 @@ const ChatRoom = ({
             children: [
               /* @__PURE__ */ jsxs("div", { className: "flex items-center space-x-3 min-w-0", children: [
                 /* @__PURE__ */ jsx(
-                  "div",
+                  UserPresenceStatus,
                   {
-                    id: "chat-avatar",
-                    className: "w-10 h-10 rounded-full bg-[#25d366] text-[#064b39] font-bold flex items-center justify-center shrink-0 shadow-inner overflow-hidden",
-                    children: chatAvatarUrl ? /* @__PURE__ */ jsx("img", { src: chatAvatarUrl, alt: chatName, className: "w-full h-full object-cover" }) : /* @__PURE__ */ jsx("span", { children: chatName.charAt(0).toUpperCase() })
+                    userId: peerUserId,
+                    initialIsOnline: isOnline !== void 0 ? isOnline : statusText.toLowerCase().includes("online"),
+                    position: "bottom-right",
+                    size: "md",
+                    children: /* @__PURE__ */ jsx(
+                      "div",
+                      {
+                        id: "chat-avatar",
+                        className: "w-10 h-10 rounded-full bg-[#25d366] text-[#064b39] font-bold flex items-center justify-center shrink-0 shadow-inner overflow-hidden",
+                        children: chatAvatarUrl ? /* @__PURE__ */ jsx("img", { src: chatAvatarUrl, alt: chatName, className: "w-full h-full object-cover" }) : /* @__PURE__ */ jsx("span", { children: chatName.charAt(0).toUpperCase() })
+                      }
+                    )
                   }
                 ),
                 /* @__PURE__ */ jsxs("div", { className: "min-w-0 flex flex-col", children: [

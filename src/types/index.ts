@@ -24,9 +24,17 @@ export interface User {
   last_seen?: string | number | null;
   is_online?: number;
   auto_translate?: number;
+  mute_notifications?: number;
   role: UserRole;
   created_at: string | number;
   updated_at: string | number;
+}
+
+export interface UserChatSettings {
+  autoTranslate: boolean;
+  muteNotifications: boolean;
+  language?: string;
+  isChatMuted?: boolean;
 }
 
 export interface Group {
@@ -117,6 +125,30 @@ export interface MutedChat {
   user_id: string;
   chat_id: string;
   created_at: string;
+}
+
+export interface UserPresence {
+  userId: string;
+  isOnline: boolean;
+  lastSeen?: string | number | null;
+}
+
+export type PresenceStatus = 'online' | 'offline';
+
+export interface UserPresenceStatusProps {
+  userId?: string;
+  initialIsOnline?: boolean;
+  initialLastSeen?: string | number | null;
+  authToken?: string;
+  apiBase?: string;
+  showLabel?: boolean;
+  size?: 'sm' | 'md' | 'lg';
+  position?: 'top-right' | 'bottom-right' | 'top-left' | 'bottom-left' | 'inline';
+  pollInterval?: number;
+  className?: string;
+  dotClassName?: string;
+  children?: any;
+  onChange?: (presence: UserPresence) => void;
 }
 
 export interface Bindings {

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import type { Message, MessageReaction, MessageStatus } from '../types/index.js';
+import { UserPresenceStatus } from './UserPresenceStatus.js';
 
 export interface ChatParticipant {
   id: string;
@@ -20,6 +21,10 @@ export interface ChatRoomProps {
   chatType?: 'direct' | 'group';
   /** Presence or status text (e.g. "Online", "Typing...", "Last seen at 10:30 AM") */
   statusText?: string;
+  /** Optional peer user ID for presence checking */
+  peerUserId?: string;
+  /** Explicit online status boolean */
+  isOnline?: boolean;
   /** Current logged-in user ID to distinguish sent vs received messages */
   currentUserId: string;
   /** Array of messages representing the chat history */
@@ -52,6 +57,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   chatAvatarUrl,
   chatType = 'direct',
   statusText = 'Online',
+  peerUserId,
+  isOnline,
   currentUserId,
   messages = [],
   onSendMessage,
@@ -259,16 +266,23 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
         className="flex items-center justify-between px-4 py-3 bg-[#075e54] dark:bg-[#202c33] text-white shadow-sm z-10 select-none"
       >
         <div className="flex items-center space-x-3 min-w-0">
-          <div
-            id="chat-avatar"
-            className="w-10 h-10 rounded-full bg-[#25d366] text-[#064b39] font-bold flex items-center justify-center shrink-0 shadow-inner overflow-hidden"
+          <UserPresenceStatus
+            userId={peerUserId}
+            initialIsOnline={isOnline !== undefined ? isOnline : statusText.toLowerCase().includes('online')}
+            position="bottom-right"
+            size="md"
           >
-            {chatAvatarUrl ? (
-              <img src={chatAvatarUrl} alt={chatName} className="w-full h-full object-cover" />
-            ) : (
-              <span>{chatName.charAt(0).toUpperCase()}</span>
-            )}
-          </div>
+            <div
+              id="chat-avatar"
+              className="w-10 h-10 rounded-full bg-[#25d366] text-[#064b39] font-bold flex items-center justify-center shrink-0 shadow-inner overflow-hidden"
+            >
+              {chatAvatarUrl ? (
+                <img src={chatAvatarUrl} alt={chatName} className="w-full h-full object-cover" />
+              ) : (
+                <span>{chatName.charAt(0).toUpperCase()}</span>
+              )}
+            </div>
+          </UserPresenceStatus>
           <div className="min-w-0 flex flex-col">
             <h2 id="chat-title" className="text-base font-semibold truncate leading-tight">
               {chatName}

@@ -23,6 +23,7 @@ userRoutes.patch('/me', async c => {
   const displayName = body.displayName || body.display_name;
   const bio = body.bio;
   const autoTranslate = body.autoTranslate !== undefined ? (body.autoTranslate ? 1 : 0) : body.auto_translate;
+  const muteNotifications = body.muteNotifications !== undefined ? (body.muteNotifications ? 1 : 0) : (body.mute_notifications !== undefined ? (body.mute_notifications ? 1 : 0) : (body.mute !== undefined ? (body.mute ? 1 : 0) : undefined));
   const language = body.language;
 
   const fields = [];
@@ -39,6 +40,10 @@ userRoutes.patch('/me', async c => {
   if (autoTranslate !== undefined) {
     fields.push('auto_translate = ?');
     values.push(autoTranslate ? 1 : 0);
+  }
+  if (muteNotifications !== undefined) {
+    fields.push('mute_notifications = ?');
+    values.push(muteNotifications ? 1 : 0);
   }
   if (language && ['si', 'ta', 'en'].includes(language)) {
     fields.push('language = ?');
@@ -57,13 +62,76 @@ userRoutes.patch('/me', async c => {
 });
 
 /**
+ * GET /api/users/me/settings - Get user chat & notification settings
+ */
+userRoutes.get('/me/settings', async c => {
+  const user = await c.env.DB.prepare('SELECT id, auto_translate, mute_notifications, language FROM users WHERE id = ?').bind(c.get('userId')).first();
+  if (!user) return c.json({ error: 'User not found' }, 404);
+  return c.json({
+    autoTranslate: user.auto_translate !== 0,
+    muteNotifications: Boolean(user.mute_notifications),
+    language: user.language || 'si'
+  });
+});
+
+/**
+ * PATCH /api/users/me/settings - Update user chat settings
+ */
+userRoutes.patch('/me/settings', async c => {
+  const body = await jsonBody(c);
+  if (!body) return c.json({ error: 'Invalid body' }, 400);
+
+  const fields = [];
+  const values = [];
+
+  if (body.autoTranslate !== undefined) {
+    fields.push('auto_translate = ?');
+    values.push(body.autoTranslate ? 1 : 0);
+  }
+  if (body.muteNotifications !== undefined || body.mute !== undefined) {
+    const isMuted = body.muteNotifications !== undefined ? body.muteNotifications : body.mute;
+    fields.push('mute_notifications = ?');
+    values.push(isMuted ? 1 : 0);
+  }
+  if (body.language && ['si', 'ta', 'en'].includes(body.language)) {
+    fields.push('language = ?');
+    values.push(body.language);
+  }
+
+  if (fields.length > 0) {
+    fields.push('updated_at = ?');
+    values.push(Date.now());
+    values.push(c.get('userId'));
+    await c.env.DB.prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`).bind(...values).run();
+  }
+
+  const updated = await c.env.DB.prepare('SELECT id, auto_translate, mute_notifications, language FROM users WHERE id = ?').bind(c.get('userId')).first();
+  return c.json({
+    autoTranslate: updated.auto_translate !== 0,
+    muteNotifications: Boolean(updated.mute_notifications),
+    language: updated.language
+  });
+});
+
+/**
  * PUT /api/users/me - Backward-compatible profile update
  */
 userRoutes.put('/me', async c => {
   const body = await jsonBody(c);
   if (!body || (body.language && !['si', 'ta', 'en'].includes(body.language))) return c.json({ error: 'Invalid profile data' }, 400);
-  await c.env.DB.prepare(`UPDATE users SET display_name = COALESCE(?, display_name), bio = COALESCE(?, bio), language = COALESCE(?, language), avatar_url = COALESCE(?, avatar_url), updated_at = ? WHERE id = ?`)
-    .bind(typeof body.display_name === 'string' ? body.display_name.trim().slice(0, 80) : null, typeof body.bio === 'string' ? body.bio.trim().slice(0, 500) : null, body.language || null, body.avatar_url || null, Date.now(), c.get('userId')).run();
+  const autoTranslateVal = body.auto_translate !== undefined ? (body.auto_translate ? 1 : 0) : (body.autoTranslate !== undefined ? (body.autoTranslate ? 1 : 0) : null);
+  const muteVal = body.mute_notifications !== undefined ? (body.mute_notifications ? 1 : 0) : (body.muteNotifications !== undefined ? (body.muteNotifications ? 1 : 0) : (body.mute !== undefined ? (body.mute ? 1 : 0) : null));
+  await c.env.DB.prepare(`UPDATE users SET display_name = COALESCE(?, display_name), bio = COALESCE(?, bio), language = COALESCE(?, language), avatar_url = COALESCE(?, avatar_url), auto_translate = COALESCE(?, auto_translate), mute_notifications = COALESCE(?, mute_notifications), updated_at = ? WHERE id = ?`)
+    .bind(
+      typeof body.display_name === 'string' ? body.display_name.trim().slice(0, 80) : null,
+      typeof body.bio === 'string' ? body.bio.trim().slice(0, 500) : null,
+      body.language || null,
+      body.avatar_url || null,
+      autoTranslateVal,
+      muteVal,
+      Date.now(),
+      c.get('userId')
+    ).run();
   return c.json({ user: publicUser(await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(c.get('userId')).first()) });
 });
 
@@ -103,6 +171,66 @@ userRoutes.get('/blocked', async c => {
   const userId = c.get('userId');
   const blocked = await dbService.getBlockedUsers(c.env.DB, userId);
   return c.json({ blockedUsers: blocked });
+});
+
+/**
+ * GET /api/users/me/presence - Get current authenticated user's presence
+ */
+userRoutes.get('/me/presence', async c => {
+  const userId = c.get('userId');
+  const user = await c.env.DB.prepare(
+    'SELECT id, is_online, last_seen FROM users WHERE id = ?'
+  ).bind(userId).first();
+
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+
+  return c.json({
+    userId: user.id,
+    isOnline: Boolean(user.is_online),
+    lastSeen: user.last_seen || null
+  });
+});
+
+/**
+ * POST /api/users/me/presence - Update current user online/presence status (Feature 6)
+ */
+userRoutes.post('/me/presence', async c => {
+  const userId = c.get('userId');
+  const body = await c.req.json().catch(() => ({}));
+  const isOnline = body.isOnline !== undefined ? Boolean(body.isOnline) : true;
+  await dbService.updateUserPresence(c.env.DB, userId, isOnline);
+  const now = Date.now();
+  return c.json({
+    success: true,
+    userId,
+    isOnline,
+    lastSeen: now
+  });
+});
+
+/**
+ * POST /api/users/presence/batch - Get presence for multiple user IDs in one call
+ */
+userRoutes.post('/presence/batch', async c => {
+  const body = await c.req.json().catch(() => ({}));
+  const userIds = Array.isArray(body.userIds) ? body.userIds.filter(Boolean) : [];
+  if (!userIds.length) {
+    return c.json({ presences: [] });
+  }
+
+  const placeholders = userIds.map(() => '?').join(',');
+  const query = `SELECT id, is_online, last_seen FROM users WHERE id IN (${placeholders})`;
+  const { results } = await c.env.DB.prepare(query).bind(...userIds).all();
+
+  const presences = (results || []).map(row => ({
+    userId: row.id,
+    isOnline: Boolean(row.is_online),
+    lastSeen: row.last_seen || null
+  }));
+
+  return c.json({ presences });
 });
 
 /**
@@ -180,7 +308,7 @@ userRoutes.get('/search', async c => {
 });
 
 userRoutes.get('/contacts', async c => {
-  const result = await c.env.DB.prepare(`SELECT u.id, u.username, u.phone, u.display_name, u.avatar_url, c.nickname, c.is_blocked
+  const result = await c.env.DB.prepare(`SELECT u.id, u.username, u.phone, u.display_name, u.avatar_url, u.is_online, u.last_seen, c.nickname, c.is_blocked
     FROM contacts c JOIN users u ON u.id = c.contact_id WHERE c.user_id = ? ORDER BY u.display_name`).bind(c.get('userId')).all();
   return c.json({ contacts: result.results || [] });
 });

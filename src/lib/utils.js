@@ -42,6 +42,8 @@ export function publicUser(user) {
     isBusiness: Boolean(user.is_business ?? user.isBusiness),
     isVerified: Boolean(user.is_verified ?? user.isVerified),
     language: user.language ?? 'si',
+    autoTranslate: user.auto_translate !== undefined ? Boolean(user.auto_translate) : true,
+    muteNotifications: Boolean(user.mute_notifications),
     lastSeen: user.last_seen ?? user.lastSeen ?? null,
   };
 }
