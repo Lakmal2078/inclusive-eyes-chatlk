@@ -67,7 +67,7 @@ messageRoutes.post('/messages/:id/read', async c => {
   if (!message || !await participant(c, message.chat_id)) return c.json({ error: 'Message not found' }, 404);
   const now = Date.now();
   await c.env.DB.batch([
-    c.env.DB.prepare("UPDATE messages SET status = CASE WHEN status = 'sent' THEN 'read' ELSE status END WHERE id = ?").bind(c.req.param('id')),
+    c.env.DB.prepare("UPDATE messages SET status = CASE WHEN status IN ('sent', 'delivered') THEN 'read' ELSE status END WHERE id = ?").bind(c.req.param('id')),
     c.env.DB.prepare("INSERT INTO message_status (id, message_id, user_id, status, timestamp) VALUES (?, ?, ?, 'read', ?) ON CONFLICT(message_id, user_id) DO UPDATE SET status = 'read', timestamp = excluded.timestamp").bind(generateId(), c.req.param('id'), c.get('userId'), now),
     c.env.DB.prepare('UPDATE chat_participants SET last_read_message_id = ? WHERE chat_id = ? AND user_id = ?').bind(c.req.param('id'), message.chat_id, c.get('userId')),
   ]);

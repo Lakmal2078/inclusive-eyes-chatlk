@@ -4,11 +4,14 @@ import { generateId, jsonBody } from '../lib/utils.js';
 
 export const chatRoutes = new Hono();
 
-chatRoutes.get('/', async c => {
+  chatRoutes.get('/', async c => {
   const result = await c.env.DB.prepare(`SELECT ch.*, cp.role,
     (SELECT text FROM messages m WHERE m.chat_id = ch.id AND m.is_deleted = 0 ORDER BY m.created_at DESC LIMIT 1) AS last_message,
-    (SELECT created_at FROM messages m WHERE m.chat_id = ch.id AND m.is_deleted = 0 ORDER BY m.created_at DESC LIMIT 1) AS last_message_at
-    FROM chats ch JOIN chat_participants cp ON cp.chat_id = ch.id WHERE cp.user_id = ? ORDER BY COALESCE(last_message_at, ch.updated_at) DESC`).bind(c.get('userId')).all();
+    (SELECT sender_id FROM messages m WHERE m.chat_id = ch.id AND m.is_deleted = 0 ORDER BY m.created_at DESC LIMIT 1) AS last_message_sender_id,
+    (SELECT created_at FROM messages m WHERE m.chat_id = ch.id AND m.is_deleted = 0 ORDER BY m.created_at DESC LIMIT 1) AS last_message_at,
+    (SELECT COUNT(*) FROM messages um WHERE um.chat_id = ch.id AND um.is_deleted = 0 AND um.sender_id != ?
+      AND (cp.last_read_message_id IS NULL OR um.created_at > COALESCE((SELECT rm.created_at FROM messages rm WHERE rm.id = cp.last_read_message_id), 0))) AS unread_count
+    FROM chats ch JOIN chat_participants cp ON cp.chat_id = ch.id WHERE cp.user_id = ? ORDER BY COALESCE(last_message_at, ch.updated_at) DESC`).bind(c.get('userId'), c.get('userId')).all();
   return c.json({ chats: result.results || [] });
 });
 
