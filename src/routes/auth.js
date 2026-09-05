@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { hashPassword, verifyPassword, encodePasswordRecord, decodePasswordRecord } from '../lib/crypto.js';
-import { sign } from '../lib/jwt.js';
+import { sign, verify } from '../lib/jwt.js';
 import { generateId, jsonBody, publicUser, validatePhone, validateUsername } from '../lib/utils.js';
 
 export const authRoutes = new Hono();
@@ -44,7 +44,11 @@ authRoutes.post('/login', async c => {
 });
 
 authRoutes.post('/refresh', async c => {
-  const userId = c.get('userId');
+  const header = c.req.header('Authorization') || '';
+  let userId = c.get('userId');
+  if (!userId && header.startsWith('Bearer ')) {
+    try { userId = (await verify(header.slice(7), c.env.JWT_SECRET)).sub; } catch { return c.json({ error: 'Invalid or expired token' }, 401); }
+  }
   if (!userId) return c.json({ error: 'Authentication required' }, 401);
   const user = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first();
   if (!user) return c.json({ error: 'User not found' }, 404);

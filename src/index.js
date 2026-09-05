@@ -25,6 +25,7 @@ app.get('/ws', async c => {
 });
 app.use('/api/*', authMiddleware);
 app.route('/api/users', userRoutes);
+app.route('/api', userRoutes);
 app.route('/api/chats', chatRoutes);
 app.route('/api', messageRoutes);
 app.route('/api/media', mediaRoutes);
