@@ -1,4 +1,3 @@
--- Migration 0008: Online/Offline Presence Tracking
--- Adds online presence flag to users
-
+-- last_seen already exists
+-- Only add is_online
 ALTER TABLE users ADD COLUMN is_online INTEGER DEFAULT 0;

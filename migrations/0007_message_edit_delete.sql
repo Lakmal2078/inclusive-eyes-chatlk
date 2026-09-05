@@ -1,4 +1,3 @@
--- Migration 0007: Message Editing & Deletion
--- Adds fields for soft deletion and tracking message edits
-
+-- is_edited, edited_at, is_deleted already exist
+-- Only add deleted_at
 ALTER TABLE messages ADD COLUMN deleted_at TEXT;
