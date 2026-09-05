@@ -18,7 +18,9 @@ if [[ ! -f .dev.vars ]]; then
   echo "Created .dev.vars with a random local JWT secret."
 fi
 
-# Android/proot can fail while Wrangler or esbuild starts a 1 GiB virtual-memory
-# allocation. Remote no-bundle mode keeps both the local workerd and bundler out
-# of the phone; Wrangler sends the module Worker directly to the remote preview.
-exec npx wrangler dev --remote --no-bundle --inspector-port 0 --ip 0.0.0.0 "$@"
+# Android/proot can fail while Wrangler's preview proxy/workerd starts a 1 GiB
+# virtual-memory allocation. A no-bundle deployment runs the Worker on Cloudflare
+# and avoids starting that local preview process entirely. This is remote
+# development, not a local-only server, and requires Cloudflare authentication.
+echo "Deploying ChatLK to Cloudflare (Android-safe no-bundle development mode)..."
+exec npx wrangler deploy --no-bundle "$@"

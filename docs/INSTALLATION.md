@@ -62,11 +62,12 @@ Use `wrangler dev --cwd ./dist --port 3000` to change the preview port.
 
 ## Running in Termux or Ubuntu inside proot-distro (Android)
 
-The local Wrangler runtime (`wrangler dev --local`) can crash on Android/Termux
-while allocating a 1 GiB virtual-memory region. The reported `FATAL ERROR: Out
-of memory` followed by `write EPIPE` is that runtime failure; it is not caused
-by the missing `.env.local` warning. This project therefore uses Wrangler's
-remote Worker runtime by default on Termux.
+Wrangler's local runtime and its remote preview proxy can crash on
+Android/Termux while allocating a 1 GiB virtual-memory region. The reported
+`FATAL ERROR: Out of memory` followed by `write EPIPE` is that runtime failure;
+it is not caused by the missing `.env.local` warning. This project therefore
+uses a no-bundle Cloudflare deployment by default on Termux, avoiding the
+preview process on the phone.
 
 Install Termux from [F-Droid](https://f-droid.org/packages/com.termux/) or the
 official Termux source. For a native Termux shell, run:
@@ -103,10 +104,10 @@ npm run dev:termux
 
 The setup script installs Node.js LTS, creates a random `.dev.vars` file, and
 runs the tests. The first `npm run dev:termux` may open a Cloudflare login
-flow. Complete it, then open the URL Wrangler prints. Keep Termux open while
-the server is running. Stop it with `Ctrl+C`.
+flow. Complete it, then open the deployed Worker URL Wrangler prints. Each
+subsequent run updates the remote Worker; this is not a local-only server.
 
-Remote mode needs real Cloudflare resources configured in `wrangler.toml`
+The Android-safe deployment needs real Cloudflare resources configured in `wrangler.toml`
 (D1, KV, R2, and Durable Objects). It is the recommended mode for a phone. On
 a normal Linux/macOS computer, local development remains available with:
 
@@ -121,7 +122,7 @@ platform runtime is installed through npm optional dependencies.
 
 | Symptom                                    | Fix                                                                                    |
 | ------------------------------------------ | -------------------------------------------------------------------------------------- |
-| `FATAL ERROR: Out of memory` / `write EPIPE` in Termux | Use `npm run dev:termux`; do not use `npm run dev:local` on Android |
+| `FATAL ERROR: Out of memory` / `write EPIPE` in Termux | Pull the latest code and use `npm run dev:termux`; do not use `npm run dev:local` or `wrangler dev --remote` on Android |
 | Wrangler asks you to log in                 | Complete the Cloudflare login in the shown URL, then rerun the command |
 | Remote bindings are missing                 | Replace placeholder D1/KV IDs and create the R2 bucket; see `README.md` |
 | `Missing .dev.vars`                          | Run `npm run setup:termux` or create `JWT_SECRET=...` in `.dev.vars` |

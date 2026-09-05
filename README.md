@@ -26,7 +26,7 @@ Open the URL printed by Wrangler. The local runtime uses local D1/KV/R2 state. W
 
 ### Termux and Ubuntu proot-distro
 
-Android's local `workerd` runtime can fail with `FATAL ERROR: Out of memory` and `write EPIPE`. Use the remote runtime instead:
+Android's local `workerd` runtime and Wrangler's preview proxy can fail with `FATAL ERROR: Out of memory` and `write EPIPE`. The Android-safe command deploys the no-bundle Worker directly to Cloudflare instead of starting a local preview process:
 
 ```bash
 # In native Termux, or after: proot-distro login ubuntu
@@ -36,7 +36,7 @@ npm run setup:termux
 npm run dev:termux
 ```
 
-The setup command detects native Termux versus Ubuntu and uses `pkg` or `apt` accordingly. The remote command requires a Cloudflare login and real remote resource IDs.
+The setup command detects native Termux versus Ubuntu and uses `pkg` or `apt` accordingly. `dev:termux` requires a Cloudflare login and real remote resource IDs, and prints the deployed Worker URL.
 
 ## Cloudflare resources and deployment
 
