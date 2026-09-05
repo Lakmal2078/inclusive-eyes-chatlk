@@ -116,7 +116,7 @@ export async function getSmartReplySuggestions(
     ta: ['சரி, நன்றி!', 'நான் பார்த்து சொல்கிறேன்.', 'புரிந்தது, பரவாயில்லை.']
   };
 
-  const fallback = defaultSuggestions[userLang] || defaultSuggestions.en;
+  const fallback: string[] = defaultSuggestions[userLang] || defaultSuggestions['en'] || [];
 
   if (!env.AI || !recentMessages || recentMessages.length === 0) {
     return fallback;

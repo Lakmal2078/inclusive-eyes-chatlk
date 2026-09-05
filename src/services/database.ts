@@ -227,11 +227,13 @@ export const dbService = {
     const countMap: Record<string, { emoji: string; count: number; users: string[] }> = {};
 
     for (const r of reactions) {
-      if (!countMap[r.emoji]) {
-        countMap[r.emoji] = { emoji: r.emoji, count: 0, users: [] };
+      let entry = countMap[r.emoji];
+      if (!entry) {
+        entry = { emoji: r.emoji, count: 0, users: [] };
+        countMap[r.emoji] = entry;
       }
-      countMap[r.emoji].count++;
-      countMap[r.emoji].users.push(r.display_name || r.username);
+      entry.count++;
+      entry.users.push(r.display_name || r.username);
     }
 
     return {
