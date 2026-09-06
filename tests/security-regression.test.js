@@ -13,6 +13,7 @@ test('CORS only grants configured origins when credentials are enabled', async (
   assert.equal(allowed.headers.get('Access-Control-Allow-Origin'), 'https://chatlk.example');
   assert.equal(allowed.headers.get('Access-Control-Allow-Credentials'), 'true');
   assert.equal(allowed.headers.get('Vary'), 'Origin');
+  assert.equal(allowed.headers.get('Permissions-Policy'), 'camera=(self), microphone=(self), geolocation=()');
 
   const rejected = await app.request('/api/health', {
     headers: { Origin: 'https://evil.example' }

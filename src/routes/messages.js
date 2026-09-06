@@ -259,6 +259,7 @@ messageRoutes.post('/chats/:id/messages', messageRateLimiter, async c => {
   const body = await jsonBody(c);
   const text = cleanText(body?.text || body?.content);
   const mediaUrl = typeof body?.mediaUrl === 'string' ? body.mediaUrl.slice(0, 1000) : null;
+  const mediaThumbnail = typeof body?.mediaThumbnail === 'string' ? body.mediaThumbnail.slice(0, 1000) : null;
   if (!text && !mediaUrl) return c.json({ error: 'Message text or media is required' }, 400);
 
   // Feature 10: AI Content Moderation
@@ -290,8 +291,8 @@ messageRoutes.post('/chats/:id/messages', messageRateLimiter, async c => {
 
   await c.env.DB.batch([
     c.env.DB.prepare(
-      `INSERT INTO messages (id, chat_id, sender_id, text, message_type, media_url, media_size, reply_to_id, status, translations, moderation_status, moderation_reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(id, chatId, userId, text, type, mediaUrl, Number(body?.mediaSize) || null, body?.replyToId || null, 'sent', translationsJson, moderationStatus, moderationReason, now),
+      `INSERT INTO messages (id, chat_id, sender_id, text, message_type, media_url, media_thumbnail, media_size, reply_to_id, status, translations, moderation_status, moderation_reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(id, chatId, userId, text, type, mediaUrl, mediaThumbnail, Number(body?.mediaSize) || null, body?.replyToId || null, 'sent', translationsJson, moderationStatus, moderationReason, now),
     c.env.DB.prepare('UPDATE chats SET updated_at = ? WHERE id = ?').bind(now, chatId)
   ]);
 

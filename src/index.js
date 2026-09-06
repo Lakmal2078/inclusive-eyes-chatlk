@@ -8,7 +8,7 @@ function securityHeaders() {
     c.res.headers.set('X-Content-Type-Options', 'nosniff');
     c.res.headers.set('X-Frame-Options', 'DENY');
     c.res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-    c.res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    c.res.headers.set('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=()');
     c.res.headers.set(
       'Content-Security-Policy',
       "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' wss:; frame-ancestors 'none';"

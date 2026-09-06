@@ -329,8 +329,9 @@ export class ChatRoom {
         senderId: session.userId,
         senderName: session.username,
         text: text || null,
-        messageType: ['text', 'image', 'video', 'audio', 'file', 'sticker'].includes(data.messageType) ? data.messageType : 'text',
-        mediaUrl: data.mediaUrl || null,
+        messageType: ['text', 'image', 'video', 'audio', 'file', 'sticker', 'voice_note'].includes(data.messageType) ? data.messageType : 'text',
+        mediaUrl: typeof data.mediaUrl === 'string' ? data.mediaUrl.slice(0, 1000) : null,
+        mediaThumbnail: typeof data.mediaThumbnail === 'string' ? data.mediaThumbnail.slice(0, 1000) : null,
         status,
         translations,
         moderationStatus,
@@ -339,7 +340,7 @@ export class ChatRoom {
 
       if (this.env.DB) {
         await this.env.DB.prepare(
-          `INSERT INTO messages (id, chat_id, sender_id, text, message_type, media_url, status, translations, moderation_status, moderation_reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO messages (id, chat_id, sender_id, text, message_type, media_url, media_thumbnail, status, translations, moderation_status, moderation_reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).bind(
           id,
           session.chatId,
@@ -347,6 +348,7 @@ export class ChatRoom {
           message.text,
           message.messageType,
           message.mediaUrl,
+          message.mediaThumbnail,
           status,
           translations ? JSON.stringify(translations) : null,
           moderationStatus,
