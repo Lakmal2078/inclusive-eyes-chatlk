@@ -26,3 +26,17 @@ await esbuild.build({
   format: 'esm',
   jsx: 'automatic'
 });
+
+await esbuild.build({
+  entryPoints: ['src/components/Status.tsx'],
+  outfile: 'src/components/Status.js',
+  format: 'esm',
+  jsx: 'automatic'
+});
+
+await esbuild.build({
+  entryPoints: ['src/components/Calls.tsx'],
+  outfile: 'src/components/Calls.js',
+  format: 'esm',
+  jsx: 'automatic'
+});

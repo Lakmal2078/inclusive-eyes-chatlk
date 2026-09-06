@@ -13,6 +13,9 @@ ChatLK is a mobile-first, installable real-time messaging application built for 
 - Smart reply, translation, content moderation, and message search via Workers AI.
 - Push notifications via Web Push API (VAPID).
 - Admin dashboard, user blocking/muting, message pinning, and status updates.
+- WhatsApp-style mobile shell with Chats, Status, and Calls navigation, green message bubbles, unread badges, presence dots, delivery ticks, and touch-friendly composer controls.
+- Status updates support text, photo, and video creation through `/api/statuses` and `/api/media`, while Calls provides audio/video entry points over the existing WebRTC call overlay.
+- Profile and chat settings include avatar, about, language, notification mute, auto-translation, and logout controls without changing the existing D1 data model.
 - PBKDF2-SHA256 password hashing with 100,000 iterations and random 16-byte salts.
 - Security headers: `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy` on every response.
 
@@ -99,6 +102,8 @@ The WebSocket endpoint is `/ws?userId=<id>&chatId=<id>&token=<jwt>`. WebSocket m
 npm test          # Run all tests (Node.js built-in test runner)
 npm run sync-assets  # Rebuild the bundled frontend
 ```
+
+The reusable React surfaces live in `src/components/ChatRoom.tsx`, `src/components/ChatSettings.tsx`, `src/components/Status.tsx`, and `src/components/Calls.tsx`. The production browser shell is rendered by `src/static/js/app.js`; `scripts/sync-assets.mjs` keeps its bundled JavaScript and CSS plus the compiled React entry points in sync.
 
 The migration files in `migrations/` are numbered `0001`–`0019` and applied in order on every server start (idempotent). See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for operational details.
 
