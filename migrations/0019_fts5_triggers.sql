@@ -21,16 +21,12 @@ END;
 CREATE TRIGGER IF NOT EXISTS messages_fts_ad AFTER DELETE ON messages
 WHEN old.text IS NOT NULL AND old.text <> ''
 BEGIN
-  INSERT INTO messages_fts(messages_fts, rowid, content, sender_id, chat_id, created_at, message_id)
-  SELECT 'delete', rowid, content, sender_id, chat_id, created_at, message_id
-  FROM messages_fts WHERE message_id = old.id;
+  DELETE FROM messages_fts WHERE message_id = old.id;
 END;
 
 CREATE TRIGGER IF NOT EXISTS messages_fts_au AFTER UPDATE OF text, sender_id, chat_id, created_at ON messages
 BEGIN
-  INSERT INTO messages_fts(messages_fts, rowid, content, sender_id, chat_id, created_at, message_id)
-  SELECT 'delete', rowid, content, sender_id, chat_id, created_at, message_id
-  FROM messages_fts WHERE message_id = old.id;
+  DELETE FROM messages_fts WHERE message_id = old.id;
   INSERT INTO messages_fts(content, sender_id, chat_id, created_at, message_id)
   SELECT new.text, new.sender_id, new.chat_id, new.created_at, new.id
   WHERE new.text IS NOT NULL AND new.text <> '';
