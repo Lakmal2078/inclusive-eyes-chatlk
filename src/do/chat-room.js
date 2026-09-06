@@ -204,10 +204,10 @@ export class ChatRoom {
         if (message && message.sender_id === session.userId && !message.is_deleted) {
           const age = Date.now() - Number(message.created_at);
           if (age <= 15 * 60 * 1000) {
-            const nowIso = new Date().toISOString();
+            const editedAt = Date.now();
             await this.env.DB.prepare(
               'UPDATE messages SET text = ?, is_edited = 1, edited_at = ? WHERE id = ?'
-            ).bind(nextText, nowIso, messageId).run();
+            ).bind(nextText, editedAt, messageId).run();
 
             return this.broadcast({
               type: 'message_edited',
@@ -215,7 +215,7 @@ export class ChatRoom {
               messageId,
               text: nextText,
               isEdited: 1,
-              editedAt: nowIso
+              editedAt
             });
           }
         }

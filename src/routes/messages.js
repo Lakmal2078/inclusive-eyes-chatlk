@@ -157,16 +157,16 @@ messageRoutes.patch('/messages/:id', async c => {
     return c.json({ error: 'Message blocked by content moderation', reason: moderation.reason }, 400);
   }
 
-  const nowIso = new Date().toISOString();
+  const editedAt = Date.now();
   await c.env.DB.prepare(
     'UPDATE messages SET text = ?, is_edited = 1, edited_at = ? WHERE id = ?'
-  ).bind(newContent, nowIso, messageId).run();
+  ).bind(newContent, editedAt, messageId).run();
 
   return c.json({
     id: messageId,
     content: newContent,
     is_edited: 1,
-    edited_at: nowIso
+    edited_at: editedAt
   });
 });
 
