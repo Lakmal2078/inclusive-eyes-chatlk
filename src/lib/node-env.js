@@ -54,6 +54,17 @@ function createD1Database(dbPath = './data/chatlk.db') {
     console.error('[ChatLK] Error running migrations:', err);
   }
 
+  // Remove dangling FTS triggers when the local SQLite build does not include FTS5.
+  // Without the virtual table, those triggers make every message insert/update fail.
+  try {
+    const hasMessageSearch = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'messages_fts'").get();
+    if (!hasMessageSearch) {
+      db.exec('DROP TRIGGER IF EXISTS messages_fts_ai; DROP TRIGGER IF EXISTS messages_fts_ad; DROP TRIGGER IF EXISTS messages_fts_au;');
+    }
+  } catch (err) {
+    console.warn('[ChatLK] Local FTS compatibility check failed:', err.message);
+  }
+
   // Repair columns that may be missing from older local SQLite databases. Cloudflare D1
   // uses the ordered migrations above; this compatibility block is only for the Node
   // development adapter where data/chatlk.db can outlive the source schema.
