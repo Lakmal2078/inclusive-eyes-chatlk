@@ -1,5 +1,20 @@
 import { Hono } from 'hono';
 import { ChatRoom } from './do/chat-room.js';
+
+// Security headers applied to every response
+function securityHeaders() {
+  return async function securityHeadersMiddleware(c, next) {
+    await next();
+    c.res.headers.set('X-Content-Type-Options', 'nosniff');
+    c.res.headers.set('X-Frame-Options', 'DENY');
+    c.res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    c.res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    c.res.headers.set(
+      'Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' wss:; frame-ancestors 'none';"
+    );
+  };
+}
 import { authRoutes } from './routes/auth.js';
 import { userRoutes } from './routes/users.js';
 import { chatRoutes } from './routes/chats.js';
@@ -21,6 +36,7 @@ import { verify as verifyJwt } from './lib/jwt.js';
 const app = new Hono();
 
 // CORS applied globally
+app.use('*', securityHeaders());
 app.use('*', corsMiddleware);
 
 // Apply rate limiting only to sensitive endpoints (auth, media uploads)

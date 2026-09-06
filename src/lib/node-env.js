@@ -25,6 +25,8 @@ function createD1Database(dbPath = './data/chatlk.db') {
   }
 
   // Run migrations
+  // Use db.exec() on the whole file so that multi-statement blocks such as
+  // CREATE TRIGGER ... BEGIN ... END are not broken by a naive split(';').
   try {
     const migrationsDir = './migrations';
     if (existsSync(migrationsDir)) {
@@ -33,20 +35,17 @@ function createD1Database(dbPath = './data/chatlk.db') {
         .sort();
       for (const file of files) {
         const sql = readFileSync(join(migrationsDir, file), 'utf8');
-        const statements = sql
-          .split(';')
-          .map(s => s.trim())
-          .filter(s => s.length > 0);
-        for (const statement of statements) {
-          try {
-            db.exec(statement + ';');
-          } catch (err) {
-            if (
-              !err.message.includes('duplicate column') &&
-              !err.message.includes('already exists')
-            ) {
-              console.warn(`[ChatLK] Migration statement note in ${file}:`, err.message);
-            }
+        try {
+          db.exec(sql);
+        } catch (err) {
+          // Ignore expected idempotency messages; log everything else.
+          const msg = err.message || '';
+          if (
+            !msg.includes('duplicate column') &&
+            !msg.includes('already exists') &&
+            !msg.includes('no such table: sqlite_master')
+          ) {
+            console.warn(`[ChatLK] Migration note in ${file}:`, msg);
           }
         }
       }
@@ -201,7 +200,14 @@ export function createNodeEnv() {
     MAX_FILE_SIZE_MB: process.env.MAX_FILE_SIZE_MB || '100',
     PREMIUM_MAX_FILE_SIZE_MB: process.env.PREMIUM_MAX_FILE_SIZE_MB || '500',
     CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
-    JWT_SECRET: process.env.JWT_SECRET || 'chatlk-jwt-secret-key-32byteslongmin',
+    JWT_SECRET: (() => {
+      const secret = process.env.JWT_SECRET;
+      if (!secret || secret.trim() === '') {
+        console.error('[ChatLK] FATAL: JWT_SECRET environment variable is not set. Set it in your .env file before starting the server.');
+        process.exit(1);
+      }
+      return secret;
+    })(),
     DB: db,
     CACHE: cache,
     MEDIA: media,
@@ -330,6 +336,26 @@ export function setupWebSocketServer(server, env) {
           if (data.type === 'message') {
             const text = typeof data.text === 'string' ? data.text.trim().slice(0, 4096) : '';
             if (!text && !data.mediaUrl) return;
+
+            // Content moderation — mirror the HTTP route behaviour
+            if (text && env.AI) {
+              try {
+                const result = await env.AI.run('@cf/mistral/mistral-7b-instruct-v0.1', {
+                  messages: [
+                    { role: 'system', content: 'You are a content moderator. Reply with exactly one word: "clean" if the message is acceptable, or "blocked" if it contains hate speech, spam, or harmful content.' },
+                    { role: 'user', content: text.slice(0, 500) }
+                  ]
+                });
+                const verdict = (result?.response || '').toLowerCase().trim();
+                if (verdict === 'blocked') {
+                  return socket.send(JSON.stringify({ type: 'error', code: 'moderation', message: 'Message blocked by content moderation.' }));
+                }
+              } catch {
+                // Moderation failure must not drop the message — log and continue
+                console.warn('[ChatLK] WebSocket moderation check skipped');
+              }
+            }
+
             const id = crypto.randomUUID();
             const now = Date.now();
             const hasOtherParticipant = [...room].some(s => s.userId !== userId);
