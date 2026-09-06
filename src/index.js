@@ -29,6 +29,9 @@ app.use('/api/media/*', rateLimitMiddleware);
 
 app.get('/api/health', c => c.json({ status: 'ok', app: c.env.APP_NAME || 'ChatLK', timestamp: Date.now() }));
 
+app.get('/api/push/vapid-key', c => c.json({ publicKey: c.env.VAPID_PUBLIC_KEY }));
+
+
 app.route('/api/auth', authRoutes);
 app.get('/api/manifest.json', serveManifest);
 

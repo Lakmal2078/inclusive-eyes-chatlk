@@ -7,14 +7,6 @@ import { savePushSubscription, removePushSubscription, sendPushToUser } from '..
 
 const pushRoutes = new Hono();
 
-/**
- * GET /api/push/vapid-key - Retrieve public VAPID key for browser subscription
- */
-pushRoutes.get('/vapid-key', c => {
-  return c.json({
-    publicKey: c.env.VAPID_PUBLIC_KEY || 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnmpGzU8='
-  });
-});
 
 /**
  * POST /api/push/subscribe - Register a Web Push subscription
