@@ -1,78 +1,114 @@
 # ChatLK
 
-ChatLK is a mobile-first, installable real-time messaging application built on Cloudflare Workers. It uses Hono for HTTP routing, D1 for durable data, KV for rate limiting, R2 for media, Workers AI for optional assistance, and one Durable Object per chat room for WebSocket delivery.
+ChatLK is a mobile-first, installable real-time messaging application built for Sri Lanka. It uses Hono for HTTP routing, SQLite (local) or Cloudflare D1 (production) for durable data, KV for rate limiting, R2 or in-memory storage for media, Workers AI for optional assistance, and a WebSocket server per chat room for real-time delivery.
 
 ## Features
 
 - Username/phone registration and HS256 JWT authentication with seven-day expiry.
-- Direct and group chats with participant administration.
-- Cursor-paginated message history, search, edit, delete, and read receipts.
-- Authenticated Durable Object WebSockets for messages, presence, typing, ping, and read events.
-- R2 uploads with MIME and free/premium size validation.
+- Direct and group chats (up to 50 members) with participant administration.
+- Cursor-paginated message history, FTS5 full-text search, edit, delete, and read receipts.
+- WebSocket connections for messages, presence, typing, ping, and read events.
+- R2 uploads (production) or in-memory storage (local) with MIME and free/premium size validation.
 - Sinhala, Tamil, and English language fields plus responsive PWA shell.
-- Optional smart reply, translation, moderation, and message-search endpoints through Workers AI.
+- Smart reply, translation, content moderation, and message search via Workers AI.
+- Push notifications via Web Push API (VAPID).
+- Admin dashboard, user blocking/muting, message pinning, and status updates.
 - PBKDF2-SHA256 password hashing with 100,000 iterations and random 16-byte salts.
+- Security headers: `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy` on every response.
 
 ## Local development
 
 ```bash
 npm install
-printf 'JWT_SECRET=replace-with-a-long-local-secret\n' > .dev.vars
+cp .env.example .env
+# Edit .env and set JWT_SECRET to a strong random value:
+# node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 npm test
-npm run dev:local
+npm run dev
 ```
 
-Open the URL printed by Wrangler. The local runtime uses local D1/KV/R2 state. Workers AI falls back safely when the local AI binding is unavailable.
+Open `http://localhost:3000` in your browser. The local runtime uses SQLite for the database and in-memory storage for uploaded files. Workers AI and push notifications fall back safely when their bindings are unavailable.
+
+> **Note:** The server will refuse to start if `JWT_SECRET` is empty or missing.
 
 ### Termux and Ubuntu proot-distro
 
-Android's local `workerd` runtime and Wrangler's preview proxy can fail with `FATAL ERROR: Out of memory` and `write EPIPE`. The Android-safe command deploys the no-bundle Worker directly to Cloudflare instead of starting a local preview process:
+The local Node.js server works in Termux without issues:
 
 ```bash
 # In native Termux, or after: proot-distro login ubuntu
 git clone https://github.com/Lakmal2078/inclusive-eyes-chatlk.git
 cd inclusive-eyes-chatlk
-npm run setup:termux
-npm run dev:termux
+npm install
+cp .env.example .env
+# Set JWT_SECRET in .env, then:
+npm run dev
 ```
 
-The setup command detects native Termux versus Ubuntu and uses `pkg` or `apt` accordingly. `dev:termux` requires a Cloudflare login and real remote resource IDs, and prints the deployed Worker URL.
+To deploy directly to Cloudflare from Termux (requires a Cloudflare account and real resource IDs in `wrangler.toml`):
+
+```bash
+npm run dev:termux
+```
 
 ## Cloudflare resources and deployment
 
 Create resources, copy the returned IDs into `wrangler.toml`, and set the production secret:
 
 ```bash
-npm run db:create
-npm run kv:create
-npm run r2:create
-npm run secret:set
-npm run db:migrate
-npm run deploy
+npx wrangler d1 create chat-db
+npx wrangler kv namespace create CACHE
+npx wrangler r2 bucket create chat-media
+npx wrangler secret put JWT_SECRET
+npx wrangler d1 migrations apply chat-db --remote
+npx wrangler deploy
 ```
 
-For staging, configure the staging resource bindings and run:
+For staging, configure the staging resource bindings in `wrangler.toml` and run:
 
 ```bash
-npm run db:migrate:staging
-npm run deploy:staging
+npx wrangler d1 migrations apply chat-db --env staging --remote
+npx wrangler deploy --env staging
 ```
 
 ## API overview
 
-Public endpoints are `GET /api/health`, `POST /api/auth/register`, `POST /api/auth/login`, and `POST /api/auth/refresh` when a current authenticated context is available. All other `/api/*` routes require `Authorization: Bearer <token>`.
+Public endpoints: `GET /api/health`, `POST /api/auth/register`, `POST /api/auth/login`, and `POST /api/auth/refresh`. All other `/api/*` routes require `Authorization: Bearer <token>`.
 
-The protected API includes `/api/users`, `/api/chats`, `/api/chats/:id/messages`, `/api/messages/:id`, `/api/media/upload`, `/api/media/:key`, and `/api/ai/{smart-reply,translate,moderate,search}`. The WebSocket endpoint is `/ws?userId=<id>&chatId=<id>&token=<jwt>`.
+The protected API includes:
+
+| Prefix | Description |
+|---|---|
+| `/api/users` | Profile, search, presence, settings, avatar |
+| `/api/chats` | Direct and group chat management |
+| `/api/groups` | Group-specific administration |
+| `/api/messages` | Send, edit, delete, read receipts, pinning |
+| `/api/messages/:id/reactions` | Emoji reactions |
+| `/api/search/messages` | FTS5 full-text search with date range filter |
+| `/api/statuses` | 24-hour status updates |
+| `/api/media` | File upload and retrieval |
+| `/api/push` | Web Push subscription management |
+| `/api/admin` | Admin dashboard (admin role required) |
+| `/api/ai` | Smart reply, translation, and moderation |
+
+The WebSocket endpoint is `/ws?userId=<id>&chatId=<id>&token=<jwt>`. WebSocket messages are subject to the same AI content moderation as HTTP messages.
 
 ## Tests and project layout
 
 ```bash
-npm test
-npm run sync-assets
+npm test          # Run all tests (Node.js built-in test runner)
+npm run sync-assets  # Rebuild the bundled frontend
 ```
 
-The ordered build is represented by `wrangler.toml`, the two migrations, helpers and middleware, routes, Durable Object, frontend shell, static assets, worker entrypoint, and this documentation. See [`docs/INSTALLATION.md`](docs/INSTALLATION.md) for operational details and [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for configuration guidance.
+The migration files in `migrations/` are numbered `0001`–`0019` and applied in order on every server start (idempotent). See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for operational details.
 
 ## Security notes
 
-All SQL values are bound through prepared statements. User-rendered message text is assigned through `textContent` in the browser. CORS is configurable through `CORS_ORIGIN`, KV applies ten-minute request buckets, WebSocket upgrades validate the JWT subject and chat membership, and media uploads validate MIME type and plan-specific size limits. Production deployments must replace placeholder resource IDs and use a strong secret stored with `wrangler secret put JWT_SECRET`.
+- All SQL values are bound through prepared statements.
+- User-rendered message text is assigned through `textContent` in the browser.
+- CORS is configurable through the `CORS_ORIGIN` environment variable.
+- KV applies ten-minute request buckets for rate limiting.
+- WebSocket upgrades validate the JWT subject and chat membership before accepting a connection.
+- Content moderation runs on both HTTP and WebSocket messages.
+- Media uploads validate MIME type and plan-specific size limits.
+- Production deployments must replace placeholder resource IDs in `wrangler.toml` and store the JWT secret with `npx wrangler secret put JWT_SECRET`.
