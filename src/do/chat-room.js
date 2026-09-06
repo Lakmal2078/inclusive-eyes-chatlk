@@ -174,14 +174,20 @@ export class ChatRoom {
     if (data.type === 'reaction') {
       const { messageId, emoji } = data;
       if (messageId && emoji && this.env.DB) {
-        const result = await dbService.toggleMessageReaction(this.env.DB, messageId, session.userId, emoji);
+        const target = await this.env.DB.prepare(
+          'SELECT id FROM messages WHERE id = ? AND chat_id = ? AND is_deleted = 0'
+        ).bind(messageId, session.chatId).first();
+        if (!target) return;
+        const normalizedEmoji = String(emoji).trim().slice(0, 16);
+        if (!normalizedEmoji) return;
+        const result = await dbService.toggleMessageReaction(this.env.DB, messageId, session.userId, normalizedEmoji);
         const reactionsData = await dbService.getMessageReactions(this.env.DB, messageId);
         return this.broadcast({
           type: 'reaction',
           chatId: session.chatId,
           messageId,
           userId: session.userId,
-          emoji,
+          emoji: normalizedEmoji,
           action: result.action,
           summary: reactionsData.summary
         });
@@ -192,21 +198,22 @@ export class ChatRoom {
     // Feature 4: Message Editing via WebSocket
     if (data.type === 'message_edit') {
       const { messageId, text } = data;
-      if (messageId && text && this.env.DB) {
-        const message = await this.env.DB.prepare('SELECT * FROM messages WHERE id = ?').bind(messageId).first();
-        if (message && message.sender_id === session.userId) {
+      const nextText = typeof text === 'string' ? text.trim().slice(0, 4096) : '';
+      if (messageId && nextText && this.env.DB) {
+        const message = await this.env.DB.prepare('SELECT * FROM messages WHERE id = ? AND chat_id = ?').bind(messageId, session.chatId).first();
+        if (message && message.sender_id === session.userId && !message.is_deleted) {
           const age = Date.now() - Number(message.created_at);
           if (age <= 15 * 60 * 1000) {
             const nowIso = new Date().toISOString();
             await this.env.DB.prepare(
               'UPDATE messages SET text = ?, is_edited = 1, edited_at = ? WHERE id = ?'
-            ).bind(text.trim(), nowIso, messageId).run();
+            ).bind(nextText, nowIso, messageId).run();
 
             return this.broadcast({
               type: 'message_edited',
               chatId: session.chatId,
               messageId,
-              text: text.trim(),
+              text: nextText,
               isEdited: 1,
               editedAt: nowIso
             });
@@ -220,8 +227,8 @@ export class ChatRoom {
     if (data.type === 'message_delete') {
       const { messageId } = data;
       if (messageId && this.env.DB) {
-        const message = await this.env.DB.prepare('SELECT * FROM messages WHERE id = ?').bind(messageId).first();
-        if (message) {
+        const message = await this.env.DB.prepare('SELECT * FROM messages WHERE id = ? AND chat_id = ?').bind(messageId, session.chatId).first();
+        if (message && !message.is_deleted) {
           const isOwner = message.sender_id === session.userId;
           const isAdmin = await dbService.isGroupAdmin(this.env.DB, session.chatId, session.userId);
           if (isOwner || isAdmin) {
@@ -245,7 +252,7 @@ export class ChatRoom {
     // Read receipt
     if (data.type === 'read') {
       if (this.env.DB && data.messageId) {
-        await this.env.DB.prepare("UPDATE messages SET status = 'read' WHERE id = ?").bind(data.messageId).run();
+        await this.env.DB.prepare("UPDATE messages SET status = 'read' WHERE id = ? AND chat_id = ? AND sender_id != ?").bind(data.messageId, session.chatId, session.userId).run();
       }
       return this.broadcast({
         type: 'read',
@@ -322,7 +329,7 @@ export class ChatRoom {
         senderId: session.userId,
         senderName: session.username,
         text: text || null,
-        messageType: data.messageType || 'text',
+        messageType: ['text', 'image', 'video', 'audio', 'file', 'sticker'].includes(data.messageType) ? data.messageType : 'text',
         mediaUrl: data.mediaUrl || null,
         status,
         translations,

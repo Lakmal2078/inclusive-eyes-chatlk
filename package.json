@@ -9,8 +9,13 @@
     "build": "npm run sync-assets",
     "sync-assets": "node scripts/sync-assets.mjs",
     "lint": "node --check server.js src/index.js src/lib/node-env.js",
-    "test": "node --env-file-if-exists=.env --test --test-concurrency=1 tests/*.test.js",
-    "dev:termux": "npm run sync-assets && npx wrangler deploy"
+    "test": "JWT_SECRET=chatlk-local-test-secret-change-me node --env-file-if-exists=.env --test --test-concurrency=1 tests/*.test.js",
+    "dev:termux": "npm run sync-assets && npx wrangler deploy",
+    "deploy": "npm run sync-assets && npx wrangler deploy",
+    "deploy:staging": "npm run sync-assets && npx wrangler deploy --env staging",
+    "db:migrate": "npx wrangler d1 migrations apply chat-db --remote",
+    "db:migrate:staging": "npx wrangler d1 migrations apply chat-db --env staging --remote",
+    "secret:set": "npx wrangler secret put JWT_SECRET"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
