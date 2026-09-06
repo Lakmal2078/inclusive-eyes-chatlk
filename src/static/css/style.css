@@ -366,7 +366,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .auth-panel { padding: 23px 20px; }
   .auth-heading { margin-top: 32px; }
   .shell { display: block; min-height: 100dvh; overflow: visible; }
-  .sidebar { min-height: 100dvh; border-right: 0; }
+  .sidebar { display: flex; min-height: 100dvh; border-right: 0; }
+  .workspace-intro, .sidebar-actions { display: none; }
+  .home-header { flex: none; }
+  .home-tools { flex: none; padding-top: 12px; padding-bottom: 8px; }
+  .quick-row { flex: none; margin-top: 4px; margin-bottom: 8px; }
+  .list-heading { flex: none; margin-top: 8px; }
+  #chat-list { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 4px; }
+  .bottom-nav { flex: none; }
   .main { position: fixed; inset: 0; z-index: 10; display: none; min-height: 100dvh; }
   .shell.chat-open .sidebar { display: none; }
   .shell.chat-open .main { display: flex; }
@@ -378,6 +385,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .reply-preview { padding: 9px 13px; }
   .whatsapp-bubble { max-width: 86%; }
   .quick-row { margin-left: 12px; margin-right: 12px; }
+  .workspace-intro + .home-tools { border-top: 0; }
+  .chat-item { min-height: 68px; padding: 11px 16px; }
+  .chat-item .avatar { width: 46px; height: 46px; border-radius: 50%; }
+  .chat-item .chat-meta strong { font-size: .86rem; }
+  .chat-item .chat-meta span { font-size: .72rem; }
+  .fab { bottom: 86px; }
   .list-heading { margin-left: 18px; margin-right: 18px; }
   .bottom-nav { display: flex; justify-content: space-around; gap: 3px; padding: 9px 5px max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--surface); }
   .nav-item { display: grid; place-items: center; gap: 4px; min-width: 22%; padding: 4px; border: 0; background: transparent; color: var(--ink-faint); font-size: .62rem; }
@@ -394,7 +407,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .auth-panel-head { align-items: flex-start; }
   .secure-pill { padding: 6px 8px; font-size: .61rem; }
   .auth-heading h2 { font-size: 1.6rem; }
-  .workspace-intro { align-items: flex-start; flex-direction: column; gap: 13px; }
+  .workspace-intro { display: none; }
   .new-chat-button { align-self: flex-start; }
   .search-wrap kbd { display: none; }
   .utility-actions { grid-template-columns: 1fr 1fr 1fr; }
