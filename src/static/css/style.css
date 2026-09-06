@@ -452,3 +452,23 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* UI audit fixes: keep transient notices clear of fixed controls and improve keyboard/touch usability */
+button, a, input, textarea, select { -webkit-tap-highlight-color: transparent; }
+button, a { touch-action: manipulation; }
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 3px solid rgba(13,107,96,.42); outline-offset: 3px; }
+.icon-button, .chat-actions button, .composer-icon, .mobile-back, .install-dismiss { min-width: 40px; min-height: 40px; }
+.chat-actions button { display: grid; place-items: center; }
+.install-notice { bottom: 96px; }
+.install-now, .install-dismiss { cursor: pointer; }
+.modal-backdrop { overscroll-behavior: contain; }
+.modal { overscroll-behavior: contain; }
+.inline-form input, .inline-form textarea, .inline-form select, .modal > .search { min-height: 44px; }
+
+@media (max-width: 760px) {
+  .install-notice { right: 12px; bottom: calc(78px + env(safe-area-inset-bottom)); width: calc(100% - 24px); }
+  .modal-backdrop { align-items: end; padding: 12px; }
+  .modal { max-height: calc(100dvh - 24px); border-radius: 22px; padding: 22px 18px; }
+  .chat-actions button { min-width: 36px; min-height: 36px; }
+  .composer-icon { min-width: 38px; min-height: 38px; }
+}
