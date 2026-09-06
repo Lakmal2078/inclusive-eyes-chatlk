@@ -54,6 +54,25 @@ function createD1Database(dbPath = './data/chatlk.db') {
     console.error('[ChatLK] Error running migrations:', err);
   }
 
+  // Repair columns that may be missing from older local SQLite databases. Cloudflare D1
+  // uses the ordered migrations above; this compatibility block is only for the Node
+  // development adapter where data/chatlk.db can outlive the source schema.
+  try {
+    const messageColumns = new Set(db.prepare('PRAGMA table_info(messages)').all().map(column => column.name));
+    const compatibilityColumns = {
+      media_thumbnail: 'TEXT',
+      is_edited: 'INTEGER NOT NULL DEFAULT 0',
+      is_deleted: 'INTEGER NOT NULL DEFAULT 0',
+      edited_at: 'INTEGER',
+      deleted_at: 'TEXT'
+    };
+    for (const [name, definition] of Object.entries(compatibilityColumns)) {
+      if (!messageColumns.has(name)) db.exec(`ALTER TABLE messages ADD COLUMN ${name} ${definition}`);
+    }
+  } catch (err) {
+    console.warn('[ChatLK] Local message schema compatibility check failed:', err.message);
+  }
+
   // Prepare statement wrapper matching Cloudflare D1 API
   const stmtCache = new Map();
   function getPreparedStmt(sql) {
