@@ -38,6 +38,45 @@ mediaRoutes.post('/upload', uploadRateLimiter, async c => {
 
 mediaRoutes.get('/*', async c => {
   const key = c.req.path.replace(/^\/api\/media\//, '');
+  const userId = c.get('userId');
+
+  // Avatars are accessible to authenticated users
+  const isAvatar = key.startsWith('avatars/');
+  const isOwner = userId && key.startsWith(`media/${userId}/`);
+
+  if (!isAvatar && !isOwner && c.env.DB && userId) {
+    // Check if user is a participant of a chat where this media is shared
+    const inChat = await c.env.DB.prepare(`
+      SELECT 1 FROM messages m
+      JOIN chat_participants cp ON cp.chat_id = m.chat_id
+      WHERE (m.media_url LIKE ? OR m.media_thumbnail LIKE ?) AND cp.user_id = ?
+      LIMIT 1
+    `).bind(`%${key}%`, `%${key}%`, userId).first();
+
+    if (!inChat) {
+      // Check if media is referenced in an active status
+      const inStatus = await c.env.DB.prepare(`
+        SELECT s.user_id FROM statuses s
+        WHERE s.media_url LIKE ? AND s.expires_at > ?
+        LIMIT 1
+      `).bind(`%${key}%`, Date.now()).first();
+
+      let allowedStatus = false;
+      if (inStatus) {
+        // Status media is accessible if the viewer is not blocked by status author
+        const blocked = await c.env.DB.prepare(`
+          SELECT 1 FROM blocked_users
+          WHERE (blocker_id = ? AND blocked_id = ?) OR (blocker_id = ? AND blocked_id = ?)
+        `).bind(userId, inStatus.user_id, inStatus.user_id, userId).first();
+        if (!blocked) allowedStatus = true;
+      }
+
+      if (!allowedStatus) {
+        return c.json({ error: 'Forbidden' }, 403);
+      }
+    }
+  }
+
   const object = await getFile(c.env, key);
   if (!object) return c.notFound();
   const headers = new Headers({ 'content-type': object.httpMetadata?.contentType || 'application/octet-stream', etag: object.httpEtag || '' });

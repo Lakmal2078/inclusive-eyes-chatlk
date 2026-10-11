@@ -3,6 +3,7 @@
  */
 
 import { Hono } from 'hono';
+import { assertParticipant } from '../lib/db.js';
 import { dbService } from '../services/database.js';
 
 const reactionRoutes = new Hono();
@@ -30,6 +31,12 @@ reactionRoutes.post('/:id/reactions', async c => {
     return c.json({ error: 'Message not found' }, 404);
   }
 
+  try {
+    await assertParticipant(c.env.DB, message.chat_id, userId);
+  } catch {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
   // Toggle reaction
   const result = await dbService.toggleMessageReaction(c.env.DB, messageId, userId, emoji);
   const updatedReactions = await dbService.getMessageReactions(c.env.DB, messageId);
@@ -46,6 +53,22 @@ reactionRoutes.post('/:id/reactions', async c => {
  */
 reactionRoutes.get('/:id/reactions', async c => {
   const messageId = c.req.param('id');
+  const userId = c.get('userId');
+
+  const message = await c.env.DB.prepare(
+    'SELECT chat_id FROM messages WHERE id = ?'
+  ).bind(messageId).first();
+
+  if (!message) {
+    return c.json({ error: 'Message not found' }, 404);
+  }
+
+  try {
+    await assertParticipant(c.env.DB, message.chat_id, userId);
+  } catch {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
   const reactions = await dbService.getMessageReactions(c.env.DB, messageId);
   return c.json(reactions);
 });
@@ -56,6 +79,20 @@ reactionRoutes.get('/:id/reactions', async c => {
 reactionRoutes.delete('/:id/reactions', async c => {
   const userId = c.get('userId');
   const messageId = c.req.param('id');
+
+  const message = await c.env.DB.prepare(
+    'SELECT chat_id FROM messages WHERE id = ?'
+  ).bind(messageId).first();
+
+  if (!message) {
+    return c.json({ error: 'Message not found' }, 404);
+  }
+
+  try {
+    await assertParticipant(c.env.DB, message.chat_id, userId);
+  } catch {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
 
   await c.env.DB.prepare(
     'DELETE FROM message_reactions WHERE message_id = ? AND user_id = ?'

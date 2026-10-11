@@ -1,3 +1,25 @@
-export const serviceWorker = `const CACHE='chatlk-shell-v2';self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['/','/style.css','/app.js','/manifest.json']))));self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));`;
+export const serviceWorker = `const CACHE='chatlk-shell-v2';
+self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['/','/style.css','/app.js','/manifest.json']))));
+self.addEventListener('activate',e=>e.waitUntil(clients.claim()));
+self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));
+self.addEventListener('push',e=>{
+  const data=e.data?e.data.json():{};
+  e.waitUntil(self.registration.showNotification(data.title||'ChatLK',{
+    body:data.body||'New message',
+    icon:data.icon||'/icon-192.svg',
+    badge:'/icon-192.svg',
+    data:data.data||{}
+  }));
+});
+self.addEventListener('notificationclick',e=>{
+  e.notification.close();
+  const url=e.notification.data?.chatId?'/?chat='+e.notification.data.chatId:'/';
+  e.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(windowClients=>{
+    for(const client of windowClients){
+      if(client.url.includes(url)&&'focus' in client)return client.focus();
+    }
+    if(clients.openWindow)return clients.openWindow(url);
+  }));
+});`;
 export const icon192 = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="48" fill="#25d366"/><path d="M54 58c0-10 8-18 18-18h48c10 0 18 8 18 18v52c0 10-8 18-18 18H92l-30 22 8-22h-6c-10 0-18-8-18-18V58Z" fill="#081014"/><circle cx="83" cy="84" r="7" fill="#25d366"/><circle cx="109" cy="84" r="7" fill="#25d366"/></svg>`;
 export const icon512 = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="128" fill="#25d366"/><path d="M144 154c0-27 21-48 48-48h128c27 0 48 21 48 48v138c0 27-21 48-48 48h-53l-80 58 21-58h-16c-27 0-48-21-48-48V154Z" fill="#081014"/><circle cx="222" cy="224" r="18" fill="#25d366"/><circle cx="290" cy="224" r="18" fill="#25d366"/></svg>`;

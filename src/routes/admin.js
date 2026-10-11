@@ -24,8 +24,8 @@ adminRoutes.get('/stats', async c => {
   // 2. Active users (last 24 hours based on last_seen or is_online)
   const activeCount = await db.prepare(`
     SELECT COUNT(*) as count FROM users
-    WHERE is_online = 1 OR last_seen >= datetime('now', '-1 day')
-  `).first();
+    WHERE is_online = 1 OR last_seen >= ?
+  `).bind(dayAgo).first();
 
   // 3. Total messages
   const msgCount = await db.prepare('SELECT COUNT(*) as count FROM messages WHERE is_deleted = 0').first();

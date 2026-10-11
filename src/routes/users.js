@@ -324,8 +324,19 @@ userRoutes.post('/contacts', async c => {
 
 userRoutes.patch('/contacts/:id', async c => {
   const body = await jsonBody(c);
+  const targetId = c.req.param('id');
+  const userId = c.get('userId');
+
+  if (body?.is_blocked !== undefined) {
+    if (body.is_blocked) {
+      await dbService.blockUser(c.env.DB, userId, targetId);
+    } else {
+      await dbService.unblockUser(c.env.DB, userId, targetId);
+    }
+  }
+
   await c.env.DB.prepare('UPDATE contacts SET nickname = COALESCE(?, nickname), is_blocked = COALESCE(?, is_blocked) WHERE user_id = ? AND contact_id = ?')
-    .bind(body?.nickname ?? null, body?.is_blocked == null ? null : Boolean(body.is_blocked) ? 1 : 0, c.get('userId'), c.req.param('id')).run();
+    .bind(body?.nickname ?? null, body?.is_blocked == null ? null : Boolean(body.is_blocked) ? 1 : 0, userId, targetId).run();
   return c.json({ ok: true });
 });
 

@@ -1,6 +1,7 @@
 import { verify } from '../lib/jwt.js';
 import { autoTranslateMessage, moderateMessageText } from '../services/ai.js';
 import { dbService } from '../services/database.js';
+import { sendPushToUser } from '../services/push.js';
 
 export class ChatRoom {
   constructor(state, env) {
@@ -57,7 +58,7 @@ export class ChatRoom {
     this.sessions.set(server, { userId, chatId, username, typingTimer: null });
 
     // Feature 6: Presence Tracking - Mark online
-    const nowIso = new Date().toISOString();
+    const nowMs = Date.now();
     if (this.env.DB) {
       await dbService.updateUserPresence(this.env.DB, userId, true);
     }
@@ -67,7 +68,7 @@ export class ChatRoom {
       chatId,
       isOnline: true,
       status: 'online',
-      lastSeen: nowIso
+      lastSeen: nowMs
     });
 
     return new Response(null, { status: 101, webSocket: client });
@@ -105,14 +106,14 @@ export class ChatRoom {
         await dbService.updateUserPresence(this.env.DB, userId, false);
       }
 
-      const disconnectIso = new Date().toISOString();
+      const disconnectMs = Date.now();
       this.broadcast({
         type: 'presence',
         userId,
         chatId,
         isOnline: false,
         status: 'offline',
-        lastSeen: disconnectIso
+        lastSeen: disconnectMs
       });
   }
 
@@ -362,6 +363,39 @@ export class ChatRoom {
           await this.env.DB.prepare(
             "INSERT INTO flagged_messages (id, message_id, reason, severity, created_at) VALUES (?, ?, ?, ?, datetime('now'))"
           ).bind(crypto.randomUUID(), id, moderationReason, 'low').run();
+        }
+
+        // Feature 9: Dispatch Push Notifications to offline participants
+        try {
+          const offlineParticipants = await this.env.DB.prepare(`
+            SELECT cp.user_id, u.display_name
+            FROM chat_participants cp
+            JOIN users u ON cp.user_id = u.id
+            WHERE cp.chat_id = ? AND cp.user_id != ? AND (u.is_online = 0 OR u.is_online IS NULL)
+          `).bind(session.chatId, session.userId).all();
+
+          const connectedSockets = this.ctx?.getWebSockets ? this.ctx.getWebSockets() : [...this.sessions.keys()];
+          const activeUserIds = new Set(
+            connectedSockets.map(s => {
+              const att = s.deserializeAttachment?.() || {};
+              return att.userId || this.sessions.get(s)?.userId;
+            }).filter(Boolean)
+          );
+
+          for (const p of offlineParticipants.results || []) {
+            if (!activeUserIds.has(p.user_id)) {
+              const isMuted = await dbService.isChatMuted(this.env.DB, p.user_id, session.chatId);
+              if (!isMuted) {
+                sendPushToUser(this.env, p.user_id, {
+                  title: `New message from ${session.username || 'Someone'}`,
+                  body: text || 'Sent an attachment',
+                  data: { chatId: session.chatId, messageId: id }
+                }).catch(() => {});
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('[ChatRoom DO Push Dispatch] error note:', err);
         }
       }
 

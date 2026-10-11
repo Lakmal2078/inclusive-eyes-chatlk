@@ -54,3 +54,19 @@ authRoutes.post('/refresh', async c => {
   if (!user) return c.json({ error: 'User not found' }, 404);
   return c.json({ token: await issueToken(user, c.env) });
 });
+
+authRoutes.post('/logout', async c => {
+  const header = c.req.header('Authorization') || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+  if (token && c.env.CACHE) {
+    try {
+      const payload = await verify(token, c.env.JWT_SECRET);
+      const nowSec = Math.floor(Date.now() / 1000);
+      const remainingSeconds = Math.max(60, (payload.exp || (nowSec + 3600)) - nowSec);
+      await c.env.CACHE.put(`blacklist:${token}`, 'revoked', { expirationTtl: remainingSeconds });
+    } catch {
+      // If token is expired or malformed, continue
+    }
+  }
+  return c.json({ success: true, message: 'Logged out successfully' });
+});

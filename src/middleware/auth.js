@@ -4,6 +4,10 @@ export async function authMiddleware(c, next) {
   const header = c.req.header('Authorization') || '';
   const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
   if (!token) return c.json({ error: 'Authentication required' }, 401);
+  if (c.env.CACHE) {
+    const isRevoked = await c.env.CACHE.get(`blacklist:${token}`);
+    if (isRevoked) return c.json({ error: 'Token has been revoked' }, 401);
+  }
   try {
     const payload = await verify(token, c.env.JWT_SECRET);
     if (!payload.sub) throw new Error('Missing subject');

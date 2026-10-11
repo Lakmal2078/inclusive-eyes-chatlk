@@ -390,14 +390,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .chat-item .avatar { width: 46px; height: 46px; border-radius: 50%; }
   .chat-item .chat-meta strong { font-size: .86rem; }
   .chat-item .chat-meta span { font-size: .72rem; }
-  .fab { bottom: 86px; }
   .list-heading { margin-left: 18px; margin-right: 18px; }
   .bottom-nav { display: flex; justify-content: space-around; gap: 3px; padding: 9px 5px max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--surface); }
   .nav-item { display: grid; place-items: center; gap: 4px; min-width: 22%; padding: 4px; border: 0; background: transparent; color: var(--ink-faint); font-size: .62rem; }
   .nav-item span { font-size: 1.18rem; line-height: 1; }
   .nav-item.active { color: var(--forest); }
   .fab { position: fixed; right: 18px; bottom: 83px; z-index: 4; display: grid; place-items: center; width: 48px; height: 48px; border: 0; border-radius: 16px; background: var(--forest); color: white; font-size: 1.5rem; box-shadow: 0 9px 20px rgba(13,107,96,.25); }
-  .sidebar-actions { padding-bottom: 9px; }
   .install-notice { right: 12px; bottom: 12px; width: calc(100% - 24px); }
 }
 
@@ -407,8 +405,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .auth-panel-head { align-items: flex-start; }
   .secure-pill { padding: 6px 8px; font-size: .61rem; }
   .auth-heading h2 { font-size: 1.6rem; }
-  .workspace-intro { display: none; }
-  .new-chat-button { align-self: flex-start; }
   .search-wrap kbd { display: none; }
   .utility-actions { grid-template-columns: 1fr 1fr 1fr; }
   .chat-actions button { width: 30px; height: 30px; font-size: .92rem; }
@@ -511,3 +507,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .chat-actions button { min-width: 36px; min-height: 36px; }
   .composer-icon { min-width: 38px; min-height: 38px; }
 }
+
+.call-controls button.muted { background: #eab308; }
+.call-btn { min-width: 54px; min-height: 54px; border-radius: 50%; border: none; font-size: 1.4rem; display: grid; place-items: center; cursor: pointer; }
+.call-btn.end { background: #ef4444; color: #fff; }
+.call-btn.accept { background: #22c55e; color: #fff; }

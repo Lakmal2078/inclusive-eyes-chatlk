@@ -17,3 +17,4 @@ data/
 credentials.json
 secrets.json
 service-account*.json
+.expo/

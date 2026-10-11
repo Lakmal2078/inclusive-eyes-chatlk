@@ -22,7 +22,22 @@ chatRoutes.post('/', async c => {
   const type = body?.type === 'group' ? 'group' : 'direct';
   const participants = [...new Set([c.get('userId'), ...(Array.isArray(body?.participantIds) ? body.participantIds : [])])].filter(Boolean);
   if (type === 'direct' && participants.length !== 2) return c.json({ error: 'A direct chat requires one other participant' }, 400);
-  if (type === 'group' && participants.length < 2) return c.json({ error: 'A group requires at least two participants' }, 400);
+  if (type === 'group') {
+    if (participants.length < 2) return c.json({ error: 'A group requires at least two participants' }, 400);
+    const name = body?.name?.trim().slice(0, 120);
+    if (!name) return c.json({ error: 'Group name is required' }, 400);
+    try {
+      const group = await dbService.createGroup(c.env.DB, c.get('userId'), {
+        name,
+        description: body.description?.trim().slice(0, 500) || null,
+        avatar_url: body.avatar_url || null,
+        memberIds: participants
+      });
+      return c.json({ id: group.id, type: 'group', participants, name: group.name }, 201);
+    } catch (err) {
+      return c.json({ error: 'Failed to create group: ' + err.message }, 400);
+    }
+  }
   const now = Date.now();
   const id = generateId();
   const statements = [c.env.DB.prepare('INSERT INTO chats (id, type, name, description, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(id, type, body.name?.trim().slice(0, 120) || null, body.description?.trim().slice(0, 500) || '', c.get('userId'), now, now)];

@@ -58,6 +58,10 @@ app.get('/ws', async c => {
   if (!userId || !chatId || !token) return c.json({ error: 'Missing WebSocket credentials' }, 401);
 
   try {
+    if (c.env.CACHE) {
+      const isRevoked = await c.env.CACHE.get(`blacklist:${token}`);
+      if (isRevoked) return c.json({ error: 'Token has been revoked' }, 401);
+    }
     const payload = await verifyJwt(token, c.env.JWT_SECRET);
     if (!payload || payload.sub !== userId) {
       return c.json({ error: 'Invalid or expired token' }, 401);

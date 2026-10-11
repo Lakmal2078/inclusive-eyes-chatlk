@@ -8,13 +8,15 @@ function toggleTheme(){const dark=!document.body.classList.contains('dark-mode')
 let deferredInstallPrompt=null;
 function isStandalone(){return window.matchMedia?.('(display-mode: standalone)').matches||window.navigator.standalone===true;}
 function showInstallNotice(){if(isStandalone()||document.querySelector('.install-notice'))return;const ios=/iphone|ipad|ipod/i.test(navigator.userAgent);const notice=document.createElement('aside');notice.className='install-notice';notice.innerHTML='<div class="install-copy"><strong>Install ChatLK</strong><span>'+(ios?'Add ChatLK to your Home Screen for a faster app experience.':'Install ChatLK on your phone for quick access and notifications.')+'</span></div><button class="install-now" type="button">Install</button><button class="install-dismiss" type="button" aria-label="Dismiss">×</button>';document.body.append(notice);notice.querySelector('.install-dismiss').onclick=()=>{notice.remove();sessionStorage.setItem('chatlk_install_notice_dismissed','1')};notice.querySelector('.install-now').onclick=async()=>{if(deferredInstallPrompt){deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;deferredInstallPrompt=null;notice.remove()}else{notice.querySelector('.install-copy span').textContent=ios?'Tap Share, then Add to Home Screen.':'Use your browser menu and choose Install app or Add to Home screen.';notice.querySelector('.install-now').textContent='Got it'}};}
+function urlBase64ToUint8Array(base64String){const padding='='.repeat((4-(base64String.length%4))%4);const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');const rawData=window.atob(base64);const outputArray=new Uint8Array(rawData.length);for(let i=0;i<rawData.length;++i)outputArray[i]=rawData.charCodeAt(i);return outputArray;}
+async function registerPush(){if(!('serviceWorker' in navigator)||!('PushManager' in window)||!state.token)return;try{const permission=await Notification.requestPermission();if(permission!=='granted')return;const reg=await navigator.serviceWorker.ready;const keyData=await api('/push/vapid-key').catch(()=>null);if(!keyData?.publicKey)return;let sub=await reg.pushManager.getSubscription();if(!sub){sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(keyData.publicKey)});}const json=sub.toJSON();await api('/push/subscribe',{method:'POST',body:JSON.stringify({endpoint:sub.endpoint,keys:{p256dh:json.keys?.p256dh,auth:json.keys?.auth}})});}catch(e){}}
 function setupPWA(){if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();deferredInstallPrompt=event;showInstallNotice()});window.addEventListener('appinstalled',()=>{deferredInstallPrompt=null;document.querySelector('.install-notice')?.remove()});if(!isStandalone()&&!sessionStorage.getItem('chatlk_install_notice_dismissed'))setTimeout(showInstallNotice,900);}
 function auth(){app.innerHTML=`<section class="auth-screen"><div class="auth-glow auth-glow-one"></div><div class="auth-glow auth-glow-two"></div><div class="auth-frame"><div class="auth-story"><div class="eyebrow"><span class="eyebrow-dot"></span>Private by design · Built for Sri Lanka</div><h1>Conversations that feel <em>closer.</em></h1><p>ChatLK brings your people, communities and everyday moments into one calm, beautifully local space.</p><div class="story-points"><span><b>01</b> Sinhala, Tamil & English</span><span><b>02</b> End-to-end ready experience</span><span><b>03</b> Made for mobile, made for you</span></div><div class="story-orbit"><div class="orbit-card orbit-card-main"><span class="orbit-avatar avatar-mint">ස</span><div><strong>සුභ උදෑසනක්</strong><span>Good morning, Nadee</span></div><span class="orbit-check">✓✓</span></div><div class="orbit-card orbit-card-small"><span class="orbit-spark">✦</span><div><strong>12</strong><span>new moments</span></div></div></div></div><div class="auth-panel card"><div class="auth-panel-head"><div class="brand-lockup"><span class="brand-mark">✦</span><span><b>Chat</b>LK</span></div><span class="secure-pill"><span class="secure-dot"></span> Secure</span></div><div class="auth-heading"><span class="auth-kicker">Welcome back</span><h2>Pick up where you left off.</h2><p>Sign in to your private conversations and communities.</p></div><form id="login"><div class="field"><label for="login-identifier">Username or phone</label><div class="input-shell"><span class="input-icon">@</span><input id="login-identifier" name="identifier" autocomplete="username" placeholder="you or +94 77 123 4567" required></div></div><div class="field"><label for="login-password">Password</label><div class="input-shell"><span class="input-icon">⌁</span><input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Your password" required></div></div><div class="form-row"><label class="check-row"><input type="checkbox"><span>Remember me</span></label><span class="muted-link">Private space</span></div><button class="primary auth-submit" type="submit"><span>Sign in to ChatLK</span><span class="button-arrow">→</span></button></form><div class="auth-divider"><span>New to ChatLK?</span></div><button class="secondary auth-secondary" type="button" id="show-register">Create your account <span>↗</span></button><p class="error" id="error" role="alert"></p><p class="legal-copy">By continuing, you agree to keep ChatLK kind, safe and respectful.</p></div></div></section>`;document.querySelector('#login').onsubmit=login;document.querySelector('#show-register').onclick=register}
 function register(){app.innerHTML=`<section class="auth-screen"><div class="auth-glow auth-glow-one"></div><div class="auth-glow auth-glow-two"></div><div class="auth-frame"><div class="auth-story"><div class="eyebrow"><span class="eyebrow-dot"></span>Your next chapter starts here</div><h1>Make room for the people who <em>matter.</em></h1><p>Create a private home for your conversations, memories and everyday check-ins.</p><div class="story-points"><span><b>01</b> One account, every language</span><span><b>02</b> Rich media and voice notes</span><span><b>03</b> Groups that feel personal</span></div><div class="story-orbit"><div class="orbit-card orbit-card-main"><span class="orbit-avatar avatar-lilac">ආ</span><div><strong>Ayubowan, friend</strong><span>Welcome to your new space</span></div><span class="orbit-check">✦</span></div><div class="orbit-card orbit-card-small"><span class="orbit-spark">◌</span><div><strong>∞</strong><span>moments to share</span></div></div></div></div><div class="auth-panel card"><div class="auth-panel-head"><div class="brand-lockup"><span class="brand-mark">✦</span><span><b>Chat</b>LK</span></div><span class="secure-pill"><span class="secure-dot"></span> Your space</span></div><div class="auth-heading"><span class="auth-kicker">Create your account</span><h2>A calmer way to stay close.</h2><p>Join ChatLK and start your private, local-first experience.</p></div><form id="register"><div class="field"><label for="register-username">Username</label><div class="input-shell"><span class="input-icon">@</span><input id="register-username" name="username" pattern="[A-Za-z0-9_]{3,20}" autocomplete="username" placeholder="your_name" required></div></div><div class="form-grid"><div class="field"><label for="register-phone">Phone</label><div class="input-shell"><span class="input-icon">+</span><input id="register-phone" name="phone" inputmode="tel" placeholder="+94 77 123 4567" required></div></div><div class="field"><label for="register-display">Display name</label><div class="input-shell"><span class="input-icon">✦</span><input id="register-display" name="display_name" autocomplete="name" placeholder="How should we call you?" required></div></div></div><div class="field"><label for="register-password">Password</label><div class="input-shell"><span class="input-icon">⌁</span><input id="register-password" name="password" type="password" minlength="8" autocomplete="new-password" placeholder="At least 8 characters" required></div></div><button class="primary auth-submit" type="submit"><span>Create my ChatLK account</span><span class="button-arrow">→</span></button></form><div class="auth-divider"><span>Already have an account?</span></div><button class="secondary auth-secondary" type="button" onclick="location.reload()">Back to sign in <span>↗</span></button><p class="error" id="error" role="alert"></p><p class="legal-copy">We use your phone number to help people find you. It stays protected in your account.</p></div></div></section>`;document.querySelector('#register').onsubmit=async e=>{e.preventDefault();try{const data=await api('/auth/register',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});saveSession(data);render()}catch(error){document.querySelector('#error').textContent=error.message}}}
 async function login(e){e.preventDefault();try{const data=await api('/auth/login',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});saveSession(data);render()}catch(error){document.querySelector('#error').textContent=error.message}}
 function saveSession(data){state.token=data.token;state.user=data.user;localStorage.setItem('chatlk_token',state.token);localStorage.setItem('chatlk_user',JSON.stringify(state.user))}
-async function render(){if(!state.token)return auth();try{const [chatData,contactData,me]=await Promise.all([api('/chats'),api('/contacts'),api('/users/me')]);state.chats=chatData.chats||[];state.contacts=contactData.contacts||[];state.user=me.user||state.user;localStorage.setItem('chatlk_user',JSON.stringify(state.user))}catch(error){state.token=null;localStorage.removeItem('chatlk_token');return auth()}app.innerHTML=`<div class="shell"><aside class="sidebar"><header class="home-header"><div class="brand-lockup sidebar-brand"><span class="brand-mark">✦</span><span><b>Chat</b>LK</span></div><div class="header-actions"><span class="online-label"><span class="online-dot"></span> Online</span><button class="icon-button" id="camera-btn" aria-label="Camera">▣</button><button class="icon-button" id="menu-btn" aria-label="Toggle theme">◐</button></div></header><div class="workspace-intro"><div><span class="eyebrow-label">YOUR SPACE</span><h1>Good to see you, ${esc(displayName(state.user).split(' ')[0])}.</h1></div><button class="new-chat-button" id="new-chat" aria-label="Start a new chat"><span>＋</span> New chat</button></div><div class="home-tools"><label class="search-wrap"><span aria-hidden="true">⌕</span><input class="search" id="search" placeholder="Search conversations" aria-label="Search chats"><kbd>⌘ K</kbd></label><div class="filter-row" role="tablist" aria-label="Chat filters"><button class="filter-chip active" data-filter="all">All <span class="count-badge"></span></button><button class="filter-chip" data-filter="unread">Unread <span class="count-badge">0</span></button><button class="filter-chip" data-filter="favorites">Favorites</button><button class="filter-chip" data-filter="groups">Groups</button></div></div><div class="quick-row"><button class="quick-item"><span class="quick-icon">▣</span><span><strong>Locked chats</strong><small>Your private corner</small></span><span class="quick-arrow">→</span></button><button class="quick-item"><span class="quick-icon quick-icon-soft">◌</span><span><strong>Archived</strong><small>Quietly out of view</small></span><span class="quick-count">0</span></button></div><div class="list-heading"><span>RECENT CONVERSATIONS</span><span class="list-line"></span></div><div id="chat-list"></div><div class="sidebar-actions"><button class="account-card" id="profile-btn"><span class="avatar profile-mini-avatar">${esc(displayName(state.user)[0])}</span><span class="account-copy"><strong>${esc(displayName(state.user))}</strong><span>@${esc(state.user.username || 'chatlk-user')}</span></span><span class="account-arrow">↗</span></button><div class="utility-actions"><button class="outline-btn" id="contacts-btn">Contacts</button><button class="outline-btn" id="group-btn">＋ Group</button><button class="outline-btn" id="settings-btn">⚙ Settings</button></div><button class="link logout-link" id="logout"><span>↗</span> Log out</button></div><nav class="bottom-nav" aria-label="Main navigation"><button class="nav-item active"><span>▤</span><b>Chats</b></button><button class="nav-item" id="updates-btn"><span>◉</span><b>Updates</b></button><button class="nav-item"><span>♧</span><b>Circles</b></button><button class="nav-item"><span>⌕</span><b>Calls</b></button></nav><button class="fab" id="fab-new" aria-label="New chat">＋</button></aside><section class="main"><header class="topbar chat-topbar"><button class="mobile-back" id="mobile-back" aria-label="Back to chats">‹</button><div class="avatar-wrap"><div class="avatar chat-avatar">${esc(displayName(state.user)[0])}</div><span class="presence-dot online" id="topbar-presence-dot" title="Online"></span></div><div class="topbar-copy"><span class="chat-overline">CURRENT CONVERSATION</span><strong id="chat-title">Select a conversation</strong><div id="presence">Ready when you are</div></div><div class="chat-actions"><button type="button" id="chat-settings-btn" aria-label="Chat settings">⚙</button><button type="button" id="video-call-btn" aria-label="Video call">▣</button><button type="button" id="voice-call-btn" aria-label="Voice call">☎</button><button type="button" aria-label="More options">⋮</button></div></header><div class="messages" id="messages"><div class="empty chat-welcome"><div class="welcome-mark">✦</div><span class="eyebrow-label">YOUR PRIVATE SPACE</span><h2>Make a little room for connection.</h2><p>Pick a conversation from the left, or start something new. Your messages, your pace.</p><div class="welcome-hints"><span>⌘ Search chats</span><span>↗ Share a moment</span><span>◌ Stay connected</span></div></div></div><div id="reply-preview" class="reply-preview hidden"></div><form class="composer whatsapp-composer" id="composer"><button type="button" class="composer-icon" id="emoji-btn" aria-label="Add emoji">☺</button><input name="text" placeholder="Write something kind…" autocomplete="off" aria-label="Message"><button type="button" class="composer-icon" id="attach-btn" aria-label="Attach file">⊕</button><input type="file" id="media-input" class="hidden" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,audio/ogg,audio/mp4,audio/webm,application/pdf" multiple><button type="button" class="composer-icon" id="camera-chat-btn" aria-label="Camera">▣</button><button type="button" class="mic-send" id="voice-btn" aria-label="Record voice note">●</button></form><div id="call-overlay" class="call-overlay hidden"><video id="remote-video" class="remote-video" autoplay playsinline></video><video id="local-video" class="local-video" autoplay muted playsinline></video><div class="call-status" id="call-status">Calling…</div><div class="call-controls"><button type="button" id="mute-call" aria-label="Mute microphone">🎙</button><button type="button" id="share-screen" aria-label="Share screen">▣</button><button type="button" id="end-call" class="end-call" aria-label="End call">☎</button></div></div></section></div>`;document.querySelector('#logout').onclick=logout;document.querySelector('#menu-btn').onclick=toggleTheme;document.querySelector('#menu-btn').title='Toggle light / dark mode';document.querySelector('#updates-btn').onclick=showStatuses;document.querySelector('#profile-btn').onclick=showProfile;document.querySelector('#settings-btn').onclick=()=>showChatSettingsModal(null);document.querySelector('#chat-settings-btn').onclick=()=>showChatSettingsModal(state.active);document.querySelector('#new-chat').onclick=showNewChat;document.querySelector('#fab-new').onclick=showNewChat;document.querySelector('#contacts-btn').onclick=showContacts;document.querySelector('#group-btn').onclick=showGroup;document.querySelector('#mobile-back').onclick=()=>document.querySelector('.shell').classList.remove('chat-open');document.querySelector('.chat-avatar').onclick=showChatInfo;document.querySelector('#chat-title').onclick=showChatInfo;document.querySelector('#video-call-btn').onclick=()=>startCall('video');document.querySelector('#voice-call-btn').onclick=()=>startCall('audio');setupCallUi();document.querySelector('#composer').onsubmit=send;document.querySelector('#composer input').oninput=handleTyping;document.querySelector('#emoji-btn').onclick=()=>{const input=document.querySelector('#composer input');input.value+='🙂';input.focus()};document.querySelector('#attach-btn').onclick=()=>document.querySelector('#media-input').click();document.querySelector('#media-input').onchange=e=>{Array.from(e.target.files||[]).forEach(uploadMedia);e.target.value=''};setupMessageInteractions();setupDropZone();document.querySelector('#camera-chat-btn').onclick=()=>document.querySelector('#presence').textContent='Camera is coming soon';document.querySelector('#voice-btn').onclick=toggleVoiceRecording;document.querySelector('#search').oninput=e=>{state.searchQuery=e.target.value.trim().toLowerCase();drawChats()};document.querySelectorAll('.filter-chip[data-filter]').forEach(button=>button.onclick=()=>{state.filter=button.dataset.filter;document.querySelectorAll('.filter-chip').forEach(item=>item.classList.toggle('active',item===button));drawChats()});drawChats()}
-function logout(){state.socket?.close();state.token=null;state.user=null;localStorage.removeItem('chatlk_token');localStorage.removeItem('chatlk_user');auth()}
+async function render(){if(!state.token)return auth();try{const [chatData,contactData,me]=await Promise.all([api('/chats'),api('/contacts'),api('/users/me')]);state.chats=chatData.chats||[];state.contacts=contactData.contacts||[];state.user=me.user||state.user;localStorage.setItem('chatlk_user',JSON.stringify(state.user))}catch(error){state.token=null;localStorage.removeItem('chatlk_token');return auth()}app.innerHTML=`<div class="shell"><aside class="sidebar"><header class="home-header"><div class="brand-lockup sidebar-brand"><span class="brand-mark">✦</span><span><b>Chat</b>LK</span></div><div class="header-actions"><span class="online-label"><span class="online-dot"></span> Online</span><button class="icon-button" id="camera-btn" aria-label="Camera">▣</button><button class="icon-button" id="menu-btn" aria-label="Toggle theme">◐</button></div></header><div class="workspace-intro"><div><span class="eyebrow-label">YOUR SPACE</span><h1>Good to see you, ${esc(displayName(state.user).split(' ')[0])}.</h1></div><button class="new-chat-button" id="new-chat" aria-label="Start a new chat"><span>＋</span> New chat</button></div><div class="home-tools"><label class="search-wrap"><span aria-hidden="true">⌕</span><input class="search" id="search" placeholder="Search conversations" aria-label="Search chats"><kbd>⌘ K</kbd></label><div class="filter-row" role="tablist" aria-label="Chat filters"><button class="filter-chip active" data-filter="all">All <span class="count-badge"></span></button><button class="filter-chip" data-filter="unread">Unread <span class="count-badge">0</span></button><button class="filter-chip" data-filter="favorites">Favorites</button><button class="filter-chip" data-filter="groups">Groups</button></div></div><div class="quick-row"><button class="quick-item"><span class="quick-icon">▣</span><span><strong>Locked chats</strong><small>Your private corner</small></span><span class="quick-arrow">→</span></button><button class="quick-item"><span class="quick-icon quick-icon-soft">◌</span><span><strong>Archived</strong><small>Quietly out of view</small></span><span class="quick-count">0</span></button></div><div class="list-heading"><span>RECENT CONVERSATIONS</span><span class="list-line"></span></div><div id="chat-list"></div><div class="sidebar-actions"><button class="account-card" id="profile-btn"><span class="avatar profile-mini-avatar">${esc(displayName(state.user)[0])}</span><span class="account-copy"><strong>${esc(displayName(state.user))}</strong><span>@${esc(state.user.username || 'chatlk-user')}</span></span><span class="account-arrow">↗</span></button><div class="utility-actions"><button class="outline-btn" id="contacts-btn">Contacts</button><button class="outline-btn" id="group-btn">＋ Group</button><button class="outline-btn" id="settings-btn">⚙ Settings</button></div><button class="link logout-link" id="logout"><span>↗</span> Log out</button></div><nav class="bottom-nav" aria-label="Main navigation"><button class="nav-item active"><span>▤</span><b>Chats</b></button><button class="nav-item" id="updates-btn"><span>◉</span><b>Updates</b></button><button class="nav-item"><span>♧</span><b>Circles</b></button><button class="nav-item"><span>⌕</span><b>Calls</b></button></nav><button class="fab" id="fab-new" aria-label="New chat">＋</button></aside><section class="main"><header class="topbar chat-topbar"><button class="mobile-back" id="mobile-back" aria-label="Back to chats">‹</button><div class="avatar-wrap"><div class="avatar chat-avatar">${esc(displayName(state.user)[0])}</div><span class="presence-dot online" id="topbar-presence-dot" title="Online"></span></div><div class="topbar-copy"><span class="chat-overline">CURRENT CONVERSATION</span><strong id="chat-title">Select a conversation</strong><div id="presence">Ready when you are</div></div><div class="chat-actions"><button type="button" id="chat-settings-btn" aria-label="Chat settings">⚙</button><button type="button" id="video-call-btn" aria-label="Video call">▣</button><button type="button" id="voice-call-btn" aria-label="Voice call">☎</button><button type="button" aria-label="More options">⋮</button></div></header><div class="messages" id="messages"><div class="empty chat-welcome"><div class="welcome-mark">✦</div><span class="eyebrow-label">YOUR PRIVATE SPACE</span><h2>Make a little room for connection.</h2><p>Pick a conversation from the left, or start something new. Your messages, your pace.</p><div class="welcome-hints"><span>⌘ Search chats</span><span>↗ Share a moment</span><span>◌ Stay connected</span></div></div></div><div id="reply-preview" class="reply-preview hidden"></div><form class="composer whatsapp-composer" id="composer"><button type="button" class="composer-icon" id="emoji-btn" aria-label="Add emoji">☺</button><input name="text" placeholder="Write something kind…" autocomplete="off" aria-label="Message"><button type="button" class="composer-icon" id="attach-btn" aria-label="Attach file">⊕</button><input type="file" id="media-input" class="hidden" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,audio/ogg,audio/mp4,audio/webm,application/pdf" multiple><button type="button" class="composer-icon" id="camera-chat-btn" aria-label="Camera">▣</button><button type="button" class="mic-send" id="voice-btn" aria-label="Record voice note">●</button></form><div id="call-overlay" class="call-overlay hidden"><video id="remote-video" class="remote-video" autoplay playsinline></video><video id="local-video" class="local-video" autoplay muted playsinline></video><div class="call-status" id="call-status">Calling…</div><div class="call-controls"><button type="button" id="mute-call" aria-label="Mute microphone">🎙</button><button type="button" id="share-screen" aria-label="Share screen">▣</button><button type="button" id="end-call" class="end-call" aria-label="End call">☎</button></div></div></section></div>`;document.querySelector('#logout').onclick=logout;document.querySelector('#menu-btn').onclick=toggleTheme;document.querySelector('#menu-btn').title='Toggle light / dark mode';document.querySelector('#updates-btn').onclick=showStatuses;document.querySelector('#profile-btn').onclick=showProfile;document.querySelector('#settings-btn').onclick=()=>showChatSettingsModal(null);document.querySelector('#chat-settings-btn').onclick=()=>showChatSettingsModal(state.active);document.querySelector('#new-chat').onclick=showNewChat;document.querySelector('#fab-new').onclick=showNewChat;document.querySelector('#contacts-btn').onclick=showContacts;document.querySelector('#group-btn').onclick=showGroup;document.querySelector('#mobile-back').onclick=()=>document.querySelector('.shell').classList.remove('chat-open');document.querySelector('.chat-avatar').onclick=showChatInfo;document.querySelector('#chat-title').onclick=showChatInfo;document.querySelector('#video-call-btn').onclick=()=>startCall('video');document.querySelector('#voice-call-btn').onclick=()=>startCall('audio');setupCallUi();document.querySelector('#composer').onsubmit=send;document.querySelector('#composer input').oninput=handleTyping;document.querySelector('#emoji-btn').onclick=()=>{const input=document.querySelector('#composer input');input.value+='🙂';input.focus()};document.querySelector('#attach-btn').onclick=()=>document.querySelector('#media-input').click();document.querySelector('#media-input').onchange=e=>{Array.from(e.target.files||[]).forEach(uploadMedia);e.target.value=''};setupMessageInteractions();setupDropZone();document.querySelector('#camera-chat-btn').onclick=()=>document.querySelector('#presence').textContent='Camera is coming soon';document.querySelector('#voice-btn').onclick=toggleVoiceRecording;document.querySelector('#search').oninput=e=>{state.searchQuery=e.target.value.trim().toLowerCase();drawChats()};document.querySelectorAll('.filter-chip[data-filter]').forEach(button=>button.onclick=()=>{state.filter=button.dataset.filter;document.querySelectorAll('.filter-chip').forEach(item=>item.classList.toggle('active',item===button));drawChats()});drawChats();registerPush()}
+async function logout(){if(state.token){try{await api('/auth/logout',{method:'POST'})}catch{}}state.socket?.close();state.token=null;state.user=null;localStorage.removeItem('chatlk_token');localStorage.removeItem('chatlk_user');auth()}
 function drawChats(){const list=document.querySelector('#chat-list');if(!list)return;const chats=state.chats.filter(chat=>{const name=(chat.name||'Direct chat').toLowerCase();const matches=!state.searchQuery||name.includes(state.searchQuery)||(chat.last_message||'').toLowerCase().includes(state.searchQuery);const filterMatch=state.filter==='all'||(state.filter==='groups'&&chat.type==='group')||(state.filter==='unread'&&Number(chat.unread_count)>0);return matches&&filterMatch});const unreadTotal=state.chats.reduce((sum,chat)=>sum+Number(chat.unread_count||0),0);const badge=document.querySelector('.count-badge');if(badge)badge.textContent=unreadTotal||'';if(!chats.length){list.innerHTML='<p class="empty chat-empty">No conversations yet.<br>Tap <b>＋</b> to begin.</p>';return}list.replaceChildren();for(const chat of chats){const item=document.createElement('button');item.dataset.chatId=chat.id;item.className='chat-item '+(Number(chat.unread_count)>0?'has-unread':'')+(state.active?.id===chat.id?' is-active':'');const name=chat.name||'Direct chat';const time=chat.last_message_at?new Date(chat.last_message_at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'';const mine=chat.last_message_sender_id===state.user?.id;const preview=chat.last_message?(mine?'You: ':'')+(chat.last_message):'No messages yet';const isOnline=Boolean(chat.peer_is_online);item.innerHTML='<span class="avatar-wrap"><span class="avatar">'+esc(name[0])+'</span>'+(chat.type!=='group'?'<span class="presence-dot '+(isOnline?'online':'offline')+'" title="'+(isOnline?'Online':'Offline')+'"></span>':'')+'</span><span class="chat-meta"><strong>'+esc(name)+'</strong><span>'+esc(preview)+'</span></span><span class="chat-side"><span class="chat-time">'+esc(time)+'</span>'+(Number(chat.unread_count)>0?'<span class="unread-badge">'+chat.unread_count+'</span>':'')+'</span>';item.onclick=()=>openChat(chat);list.append(item)}}
 function modal(title,body){const node=document.createElement('div');node.className='modal-backdrop';node.innerHTML=`<section class="modal card" role="dialog" aria-modal="true"><h2>${title}</h2>${body}<button class="link" id="close-modal">Cancel</button></section>`;document.body.append(node);node.querySelector('#close-modal').onclick=()=>node.remove();return node}
 function renderStatusMedia(status,box){if(!status.media_url)return;loadMedia(status.media_url).then(url=>{if(status.media_type&&status.media_type.startsWith('video/')){const video=document.createElement('video');video.src=url;video.controls=true;video.playsInline=true;video.className='status-media';box.prepend(video)}else{const image=document.createElement('img');image.src=url;image.alt='Status media';image.className='status-media';box.prepend(image)}}).catch(()=>{})}
@@ -60,6 +62,223 @@ async function uploadMedia(file){if(!state.active)return;const status=document.q
 async function loadMedia(url){const response=await fetch(url,{headers:{Authorization:state.token?`Bearer ${state.token}`:''}});if(!response.ok)throw new Error('Unable to load media');return URL.createObjectURL(await response.blob())}
 async function markRead(message){if(!message?.id)return;try{await api(`/messages/${message.id}/read`,{method:'POST'});state.socket?.send(JSON.stringify({type:'read',messageId:message.id}))}catch{}}
 async function send(e){e.preventDefault();const input=e.target.elements.text;if(!state.active||!input.value.trim())return;const text=input.value.trim();const payload={text,replyToId:state.replyTo?.id||null};try{if(state.socket?.readyState===WebSocket.OPEN)state.socket.send(JSON.stringify({type:'message',...payload}));else{const data=await api(`/chats/${state.active.id}/messages`,{method:'POST',body:JSON.stringify(payload)});state.messages.push(data.message);drawMessages()}input.value='';state.replyTo=null;drawReplyPreview();await refreshChats()}catch(error){document.querySelector('#presence').textContent=error.message}}
+const RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+function endCall(notifyRemote = true) {
+  if (state.call) {
+    if (notifyRemote && state.socket?.readyState === WebSocket.OPEN) {
+      try { state.socket.send(JSON.stringify({ type: 'call-end' })); } catch {}
+    }
+    if (state.call.localStream) {
+      state.call.localStream.getTracks().forEach(t => t.stop());
+    }
+    if (state.call.pc) {
+      try { state.call.pc.close(); } catch {}
+    }
+    state.call = null;
+  }
+  const overlay = document.querySelector('#call-overlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+    const remoteVideo = overlay.querySelector('#remote-video');
+    const localVideo = overlay.querySelector('#local-video');
+    if (remoteVideo) remoteVideo.srcObject = null;
+    if (localVideo) localVideo.srcObject = null;
+  }
+}
+
+function setupCallUi() {
+  const overlay = document.querySelector('#call-overlay');
+  if (!overlay) return;
+  const muteBtn = overlay.querySelector('#mute-call');
+  const shareBtn = overlay.querySelector('#share-screen');
+  const endBtn = overlay.querySelector('#end-call');
+
+  if (muteBtn) {
+    muteBtn.onclick = () => {
+      if (!state.call?.localStream) return;
+      state.call.isMuted = !state.call.isMuted;
+      state.call.localStream.getAudioTracks().forEach(t => t.enabled = !state.call.isMuted);
+      muteBtn.classList.toggle('muted', state.call.isMuted);
+      muteBtn.textContent = state.call.isMuted ? '🔇' : '🎙';
+    };
+  }
+
+  if (shareBtn) {
+    shareBtn.onclick = async () => {
+      if (!state.call?.pc || !navigator.mediaDevices?.getDisplayMedia) return;
+      try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const screenTrack = screenStream.getVideoTracks()[0];
+        const senders = state.call.pc.getSenders();
+        const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+        if (videoSender) {
+          videoSender.replaceTrack(screenTrack);
+          screenTrack.onended = () => {
+            const originalVideo = state.call.localStream.getVideoTracks()[0];
+            if (originalVideo) videoSender.replaceTrack(originalVideo);
+          };
+        }
+      } catch {}
+    };
+  }
+
+  if (endBtn) {
+    endBtn.onclick = () => endCall(true);
+  }
+}
+
+async function startCall(kind = 'audio') {
+  if (!state.active) {
+    alert('Please open a chat to start a call.');
+    return;
+  }
+  if (!navigator.mediaDevices?.getUserMedia || typeof window.RTCPeerConnection === 'undefined') {
+    alert('Audio and video calls are not supported by this browser.');
+    return;
+  }
+  if (!state.socket || state.socket.readyState !== WebSocket.OPEN) {
+    alert('Connecting to chat server... Please wait a moment and try again.');
+    return;
+  }
+
+  endCall(false);
+
+  const overlay = document.querySelector('#call-overlay');
+  const statusEl = document.querySelector('#call-status');
+  const localVideo = document.querySelector('#local-video');
+  const remoteVideo = document.querySelector('#remote-video');
+  if (overlay) overlay.classList.remove('hidden');
+  if (statusEl) statusEl.textContent = `Calling ${esc(state.active.name || 'contact')} (${kind === 'video' ? 'Video' : 'Voice'})…`;
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: kind === 'video'
+    });
+
+    const pc = new RTCPeerConnection(RTC_CONFIG);
+    state.call = { pc, localStream: stream, kind, isMuted: false };
+
+    stream.getTracks().forEach(track => pc.addTrack(track, stream));
+    if (localVideo) {
+      localVideo.style.display = kind === 'video' ? 'block' : 'none';
+      localVideo.srcObject = stream;
+    }
+    if (remoteVideo) {
+      remoteVideo.style.display = kind === 'video' ? 'block' : 'none';
+    }
+
+    pc.onicecandidate = e => {
+      if (e.candidate && state.socket?.readyState === WebSocket.OPEN) {
+        state.socket.send(JSON.stringify({ type: 'ice-candidate', payload: e.candidate }));
+      }
+    };
+
+    pc.ontrack = e => {
+      if (remoteVideo && e.streams[0]) {
+        remoteVideo.srcObject = e.streams[0];
+        if (statusEl) statusEl.textContent = 'Connected';
+      }
+    };
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    state.socket.send(JSON.stringify({
+      type: 'call-offer',
+      payload: { sdp: offer, kind, callerName: displayName(state.user) }
+    }));
+  } catch (err) {
+    endCall(false);
+    alert(err.name === 'NotAllowedError' ? 'Microphone or camera permission was denied.' : 'Call failed: ' + err.message);
+  }
+}
+
+async function receiveCall(payload, peerUserId) {
+  if (!payload?.sdp) return;
+  const kind = payload.kind || 'audio';
+  const caller = payload.callerName || 'Incoming call';
+
+  endCall(false);
+
+  const incomingModal = modal(`Incoming ${kind === 'video' ? 'Video' : 'Voice'} Call`, `
+    <div style="text-align:center;padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:16px;">
+      <div class="avatar large-avatar">${esc(caller[0].toUpperCase())}</div>
+      <p style="margin:0;font-size:16px;"><b>${esc(caller)}</b> is calling you...</p>
+      <div style="display:flex;gap:24px;margin-top:12px;">
+        <button type="button" class="call-btn end" id="decline-call-btn" title="Decline">✕</button>
+        <button type="button" class="call-btn accept" id="accept-call-btn" title="Accept">☎</button>
+      </div>
+    </div>
+  `);
+
+  incomingModal.querySelector('#decline-call-btn').onclick = () => {
+    incomingModal.remove();
+    if (state.socket?.readyState === WebSocket.OPEN) {
+      state.socket.send(JSON.stringify({ type: 'call-end' }));
+    }
+  };
+
+  incomingModal.querySelector('#accept-call-btn').onclick = async () => {
+    incomingModal.remove();
+    if (!navigator.mediaDevices?.getUserMedia || typeof window.RTCPeerConnection === 'undefined') {
+      alert('Calls are not supported by this browser.');
+      return;
+    }
+
+    const overlay = document.querySelector('#call-overlay');
+    const statusEl = document.querySelector('#call-status');
+    const localVideo = document.querySelector('#local-video');
+    const remoteVideo = document.querySelector('#remote-video');
+    if (overlay) overlay.classList.remove('hidden');
+    if (statusEl) statusEl.textContent = `Connected with ${esc(caller)}`;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: kind === 'video'
+      });
+
+      const pc = new RTCPeerConnection(RTC_CONFIG);
+      state.call = { pc, localStream: stream, kind, isMuted: false };
+
+      stream.getTracks().forEach(track => pc.addTrack(track, stream));
+      if (localVideo) {
+        localVideo.style.display = kind === 'video' ? 'block' : 'none';
+        localVideo.srcObject = stream;
+      }
+      if (remoteVideo) {
+        remoteVideo.style.display = kind === 'video' ? 'block' : 'none';
+      }
+
+      pc.onicecandidate = e => {
+        if (e.candidate && state.socket?.readyState === WebSocket.OPEN) {
+          state.socket.send(JSON.stringify({ type: 'ice-candidate', payload: e.candidate }));
+        }
+      };
+
+      pc.ontrack = e => {
+        if (remoteVideo && e.streams[0]) {
+          remoteVideo.srcObject = e.streams[0];
+        }
+      };
+
+      await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      state.socket.send(JSON.stringify({
+        type: 'call-answer',
+        payload: answer
+      }));
+    } catch (err) {
+      endCall(false);
+      alert(err.name === 'NotAllowedError' ? 'Microphone or camera permission was denied.' : 'Call failed: ' + err.message);
+    }
+  };
+}
+
 function showCalls(){const m=modal('Calls',`<div class="call-start-options"><button type="button" id="start-voice-call"><span>☎</span><strong>Voice call</strong><small>Open a chat to start an audio call.</small></button><button type="button" id="start-video-call"><span>▣</span><strong>Video call</strong><small>Open a chat to start a video call.</small></button></div><p class="empty">Your recent calls will appear here.</p>`);m.querySelector('#start-voice-call').onclick=()=>{m.remove();if(state.active)startCall('audio');else alert('Open a chat to start a call.')};m.querySelector('#start-video-call').onclick=()=>{m.remove();if(state.active)startCall('video');else alert('Open a chat to start a call.')}}
 function setupPrimaryNavigation(){const nav=document.querySelector('.bottom-nav');if(!nav||nav.dataset.ready)return false;const buttons=nav.querySelectorAll('.nav-item');if(buttons.length<4)return false;nav.dataset.ready='true';buttons[1].querySelector('b').textContent='Status';buttons[1].setAttribute('aria-label','Status');buttons[2].hidden=true;buttons[3].querySelector('b').textContent='Calls';buttons[3].setAttribute('aria-label','Calls');buttons[3].querySelector('span').textContent='☎';buttons[1].onclick=()=>{buttons.forEach(item=>item.classList.remove('active'));buttons[1].classList.add('active');showStatuses()};buttons[3].onclick=()=>{buttons.forEach(item=>item.classList.remove('active'));buttons[3].classList.add('active');showCalls()};return true}
 const navigationObserver=new MutationObserver(()=>{if(setupPrimaryNavigation())navigationObserver.disconnect()});navigationObserver.observe(app,{childList:true,subtree:true});

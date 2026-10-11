@@ -39,7 +39,7 @@ export const dbService = {
   },
 
   async updateUserPresence(db, userId, isOnline) {
-    const now = new Date().toISOString();
+    const now = Date.now();
     await db.prepare(
       'UPDATE users SET is_online = ?, last_seen = ? WHERE id = ?'
     ).bind(isOnline ? 1 : 0, now, userId).run();

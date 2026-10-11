@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">ChatLK</string>
+    <string name="chatlk_server_url">https://chatlk.agent-1xfast-srilanka.workers.dev</string>
+</resources>

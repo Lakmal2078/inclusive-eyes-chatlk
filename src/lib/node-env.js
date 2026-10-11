@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-import { readFileSync, readdirSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, unlinkSync, readdirSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { verify } from './jwt.js';
@@ -190,21 +190,57 @@ async function streamToBuffer(body) {
   return Buffer.from(body);
 }
 
-function createMediaStorage() {
+function createMediaStorage(storageDir = null) {
   const files = new Map();
+  if (storageDir && !existsSync(storageDir)) {
+    try {
+      mkdirSync(storageDir, { recursive: true });
+    } catch {}
+  }
+
+  function getSafePath(key) {
+    if (!storageDir) return null;
+    const safeName = encodeURIComponent(key);
+    return join(storageDir, safeName);
+  }
+
   return {
     async put(key, body, options = {}) {
       const buffer = await streamToBuffer(body);
-      files.set(key, {
-        buffer,
-        httpMetadata: options.httpMetadata || { contentType: 'application/octet-stream' },
-        customMetadata: options.customMetadata || {},
-        httpEtag: `"${Date.now()}-${buffer.length}"`
-      });
+      const httpMetadata = options.httpMetadata || { contentType: 'application/octet-stream' };
+      const customMetadata = options.customMetadata || {};
+      const httpEtag = `"${Date.now()}-${buffer.length}"`;
+
+      const item = { buffer, httpMetadata, customMetadata, httpEtag };
+      files.set(key, item);
+
+      const filePath = getSafePath(key);
+      if (filePath) {
+        try {
+          writeFileSync(filePath, buffer);
+          writeFileSync(filePath + '.meta.json', JSON.stringify({ httpMetadata, customMetadata, httpEtag }));
+        } catch (err) {
+          console.warn('[ChatLK] Failed to persist media file to disk:', err.message);
+        }
+      }
       return { key };
     },
     async get(key) {
-      const item = files.get(key);
+      let item = files.get(key);
+      if (!item) {
+        const filePath = getSafePath(key);
+        if (filePath && existsSync(filePath)) {
+          try {
+            const buffer = readFileSync(filePath);
+            let meta = { httpMetadata: { contentType: 'application/octet-stream' }, customMetadata: {}, httpEtag: `"${buffer.length}"` };
+            if (existsSync(filePath + '.meta.json')) {
+              meta = JSON.parse(readFileSync(filePath + '.meta.json', 'utf8'));
+            }
+            item = { buffer, httpMetadata: meta.httpMetadata, customMetadata: meta.customMetadata, httpEtag: meta.httpEtag };
+            files.set(key, item);
+          } catch {}
+        }
+      }
       if (!item) return null;
       return {
         body: item.buffer,
@@ -215,14 +251,23 @@ function createMediaStorage() {
     },
     async delete(key) {
       files.delete(key);
+      const filePath = getSafePath(key);
+      if (filePath) {
+        try {
+          if (existsSync(filePath)) unlinkSync(filePath);
+          if (existsSync(filePath + '.meta.json')) unlinkSync(filePath + '.meta.json');
+        } catch {}
+      }
     }
   };
 }
 
 export function createNodeEnv() {
-  const db = createD1Database(process.env.DB_PATH || './data/chatlk.db');
+  const dbPath = process.env.DB_PATH || './data/chatlk.db';
+  const db = createD1Database(dbPath);
   const cache = createKvCache();
-  const media = createMediaStorage();
+  const mediaStorageDir = dbPath === ':memory:' ? null : (process.env.MEDIA_DIR || './data/media');
+  const media = createMediaStorage(mediaStorageDir);
 
   const env = {
     APP_NAME: process.env.APP_NAME || 'ChatLK',

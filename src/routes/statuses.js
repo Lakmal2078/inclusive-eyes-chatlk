@@ -6,12 +6,29 @@ export const statusRoutes = new Hono();
 
 statusRoutes.get('/', async c => {
   const now = Date.now();
+  const userId = c.get('userId');
   const result = await c.env.DB.prepare(`SELECT s.id, s.user_id, s.text, s.media_url, s.media_type, s.created_at, s.expires_at,
     u.username, u.display_name, u.avatar_url, u.is_verified,
     (SELECT COUNT(*) FROM status_views sv WHERE sv.status_id = s.id) AS viewer_count,
     EXISTS(SELECT 1 FROM status_views ownv WHERE ownv.status_id = s.id AND ownv.viewer_id = ?) AS viewed
     FROM statuses s JOIN users u ON u.id = s.user_id
-    WHERE s.expires_at > ? ORDER BY s.created_at DESC`).bind(c.get('userId'), now).all();
+    WHERE s.expires_at > ?
+      AND (
+        s.user_id = ?
+        OR s.user_id IN (
+          SELECT contact_id FROM contacts WHERE user_id = ?
+          UNION
+          SELECT cp2.user_id FROM chat_participants cp1
+          JOIN chat_participants cp2 ON cp1.chat_id = cp2.chat_id
+          WHERE cp1.user_id = ? AND cp2.user_id != ?
+        )
+      )
+      AND s.user_id NOT IN (
+        SELECT blocked_id FROM blocked_users WHERE blocker_id = ?
+        UNION
+        SELECT blocker_id FROM blocked_users WHERE blocked_id = ?
+      )
+    ORDER BY s.created_at DESC`).bind(userId, now, userId, userId, userId, userId, userId, userId).all();
   return c.json({ statuses: result.results || [] });
 });
 
