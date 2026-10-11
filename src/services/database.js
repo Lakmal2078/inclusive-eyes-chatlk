@@ -175,6 +175,86 @@ export const dbService = {
     return true;
   },
 
+  // --- GROUP INVITES (CIRCLE-FIRST ONBOARDING) ---
+  async createGroupInvite(db, groupId, userId, options = {}) {
+    const inviteId = crypto.randomUUID();
+    const code = (options.code || crypto.randomUUID().replace(/[^a-zA-Z0-9]/g, '').slice(0, 8)).toLowerCase();
+    const now = Date.now();
+    const expiresAt = options.expiresInDays ? now + (options.expiresInDays * 86400000) : null;
+    const maxUses = options.maxUses || null;
+
+    await db.prepare(
+      'INSERT INTO group_invites (id, group_id, code, created_by, created_at, expires_at, max_uses, use_count) VALUES (?, ?, ?, ?, ?, ?, ?, 0)'
+    ).bind(inviteId, groupId, code, userId, now, expiresAt, maxUses).run();
+
+    return {
+      id: inviteId,
+      group_id: groupId,
+      code,
+      created_by: userId,
+      created_at: now,
+      expires_at: expiresAt,
+      max_uses: maxUses,
+      use_count: 0
+    };
+  },
+
+  async getGroupActiveInvite(db, groupId) {
+    const now = Date.now();
+    const invite = await db.prepare(
+      'SELECT * FROM group_invites WHERE group_id = ? AND (expires_at IS NULL OR expires_at > ?) ORDER BY created_at DESC LIMIT 1'
+    ).bind(groupId, now).first();
+    return invite || null;
+  },
+
+  async getInviteByCode(db, code) {
+    const now = Date.now();
+    const invite = await db.prepare(`
+      SELECT gi.*, g.name as group_name, g.description as group_description, g.avatar_url as group_avatar_url,
+             u.display_name as host_display_name, u.username as host_username,
+             (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as member_count
+      FROM group_invites gi
+      JOIN groups g ON gi.group_id = g.id
+      JOIN users u ON gi.created_by = u.id
+      WHERE gi.code = ?
+    `).bind(code.toLowerCase()).first();
+
+    if (!invite) return null;
+    if (invite.expires_at && invite.expires_at < now) {
+      return { ...invite, is_expired: true };
+    }
+    if (invite.max_uses && invite.use_count >= invite.max_uses) {
+      return { ...invite, is_exhausted: true };
+    }
+    return { ...invite, is_valid: true };
+  },
+
+  async joinGroupViaInvite(db, code, userId) {
+    const invite = await this.getInviteByCode(db, code);
+    if (!invite || !invite.is_valid) {
+      throw new Error(invite?.is_expired ? 'Invite link has expired' : (invite?.is_exhausted ? 'Invite link usage limit reached' : 'Invalid invite code'));
+    }
+
+    const group = await this.getGroupById(db, invite.group_id);
+    if (!group) throw new Error('Group no longer exists');
+    if ((group.member_count || 0) >= 50) {
+      throw new Error('Group has reached maximum limit of 50 members');
+    }
+
+    const isMember = await this.isGroupMember(db, invite.group_id, userId);
+    if (!isMember) {
+      await this.addGroupMember(db, invite.group_id, userId, 'member');
+      await db.prepare('UPDATE group_invites SET use_count = use_count + 1 WHERE id = ?').bind(invite.id).run();
+    }
+
+    return {
+      success: true,
+      groupId: invite.group_id,
+      groupName: invite.group_name,
+      alreadyMember: isMember
+    };
+  },
+
   // --- REACTIONS ---
   async toggleMessageReaction(db, messageId, userId, emoji) {
     const existing = await db.prepare(

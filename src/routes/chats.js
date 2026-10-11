@@ -23,7 +23,7 @@ chatRoutes.post('/', async c => {
   const participants = [...new Set([c.get('userId'), ...(Array.isArray(body?.participantIds) ? body.participantIds : [])])].filter(Boolean);
   if (type === 'direct' && participants.length !== 2) return c.json({ error: 'A direct chat requires one other participant' }, 400);
   if (type === 'group') {
-    if (participants.length < 2) return c.json({ error: 'A group requires at least two participants' }, 400);
+    if (participants.length < 1) return c.json({ error: 'A group requires at least one participant' }, 400);
     const name = body?.name?.trim().slice(0, 120);
     if (!name) return c.json({ error: 'Group name is required' }, 400);
     try {

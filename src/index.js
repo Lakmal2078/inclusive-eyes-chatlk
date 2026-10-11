@@ -27,6 +27,7 @@ import reactionRoutes from './routes/reactions.js';
 import searchRoutes from './routes/search.js';
 import pushRoutes from './routes/push.js';
 import adminRoutes from './routes/admin.js';
+import { inviteRoutes } from './routes/invites.js';
 import { authMiddleware } from './middleware/auth.js';
 import { corsMiddleware } from './middleware/cors.js';
 import { rateLimitMiddleware } from './middleware/rateLimit.js';
@@ -49,6 +50,7 @@ app.get('/api/push/vapid-key', c => c.json({ publicKey: c.env.VAPID_PUBLIC_KEY }
 
 
 app.route('/api/auth', authRoutes);
+app.route('/api/invites', inviteRoutes);
 app.get('/api/manifest.json', serveManifest);
 
 app.get('/ws', async c => {

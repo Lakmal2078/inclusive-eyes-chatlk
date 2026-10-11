@@ -180,4 +180,78 @@ groupRoutes.delete('/:id', async c => {
   return c.json({ success: true, message: 'Group deleted successfully' });
 });
 
+/**
+ * POST /api/groups/:id/invites - Create or retrieve invite link (Admin only)
+ */
+groupRoutes.post('/:id/invites', async c => {
+  const callerId = c.get('userId');
+  const groupId = c.req.param('id');
+  const body = await c.req.json().catch(() => ({}));
+
+  const isAdmin = await dbService.isGroupAdmin(c.env.DB, groupId, callerId);
+  if (!isAdmin) {
+    return c.json({ error: 'Only group admins can generate invite links' }, 403);
+  }
+
+  const group = await dbService.getGroupById(c.env.DB, groupId);
+  if (!group) {
+    return c.json({ error: 'Group not found' }, 404);
+  }
+
+  // Reuse active invite if requested, or generate new
+  let invite = null;
+  if (!body.regenerate) {
+    invite = await dbService.getGroupActiveInvite(c.env.DB, groupId);
+  }
+
+  if (!invite) {
+    invite = await dbService.createGroupInvite(c.env.DB, groupId, callerId, {
+      expiresInDays: body.expiresInDays || 30,
+      maxUses: body.maxUses || null
+    });
+  }
+
+  return c.json({
+    success: true,
+    invite: {
+      id: invite.id,
+      code: invite.code,
+      url: `/join/${invite.code}`,
+      expires_at: invite.expires_at,
+      created_at: invite.created_at,
+      use_count: invite.use_count || 0
+    }
+  }, 201);
+});
+
+/**
+ * GET /api/groups/:id/invites - Get current active invite (Members only)
+ */
+groupRoutes.get('/:id/invites', async c => {
+  const callerId = c.get('userId');
+  const groupId = c.req.param('id');
+
+  const isMember = await dbService.isGroupMember(c.env.DB, groupId, callerId);
+  if (!isMember) {
+    return c.json({ error: 'You are not a member of this group' }, 403);
+  }
+
+  const invite = await dbService.getGroupActiveInvite(c.env.DB, groupId);
+  if (!invite) {
+    return c.json({ invite: null });
+  }
+
+  return c.json({
+    invite: {
+      id: invite.id,
+      code: invite.code,
+      url: `/join/${invite.code}`,
+      expires_at: invite.expires_at,
+      created_at: invite.created_at,
+      use_count: invite.use_count || 0
+    }
+  });
+});
+
 export default groupRoutes;
+

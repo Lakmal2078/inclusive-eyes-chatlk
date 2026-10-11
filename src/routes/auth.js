@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { hashPassword, verifyPassword, encodePasswordRecord, decodePasswordRecord } from '../lib/crypto.js';
 import { sign, verify } from '../lib/jwt.js';
 import { generateId, jsonBody, publicUser, validatePhone, validateUsername } from '../lib/utils.js';
+import { dbService } from '../services/database.js';
 
 export const authRoutes = new Hono();
 const expiry = () => Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60;
@@ -26,7 +27,26 @@ authRoutes.post('/register', async c => {
     await c.env.DB.prepare(`INSERT INTO users (id, username, phone, display_name, password_hash, language, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(user.id, user.username, user.phone, user.display_name, encodePasswordRecord(password), user.language, now, now).run();
-    return c.json({ user: publicUser(user), token: await issueToken(user, c.env) }, 201);
+
+    let joinedChatId = null;
+    let joinedGroupName = null;
+    const inviteCode = body.invite_code || body.inviteCode;
+    if (inviteCode) {
+      try {
+        const joinRes = await dbService.joinGroupViaInvite(c.env.DB, inviteCode, user.id);
+        joinedChatId = joinRes.groupId;
+        joinedGroupName = joinRes.groupName;
+      } catch (err) {
+        console.warn('Auto-join via invite error during registration:', err.message);
+      }
+    }
+
+    return c.json({
+      user: publicUser(user),
+      token: await issueToken(user, c.env),
+      joinedChatId,
+      joinedGroupName
+    }, 201);
   } catch (error) {
     console.error('registration failed', error);
     return c.json({ error: 'Username or phone already exists' }, 409);
