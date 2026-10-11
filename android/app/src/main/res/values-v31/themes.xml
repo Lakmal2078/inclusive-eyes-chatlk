@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ChatLK" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/brand_forest</item>
+        <item name="android:navigationBarColor">@color/brand_dark</item>
+        <item name="android:windowSplashScreenBackground">@color/brand_forest</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/brand_forest_deep</item>
+    </style>
+</resources>

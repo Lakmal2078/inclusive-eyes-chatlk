@@ -31,7 +31,21 @@ import { inviteRoutes } from './routes/invites.js';
 import { authMiddleware } from './middleware/auth.js';
 import { corsMiddleware } from './middleware/cors.js';
 import { rateLimitMiddleware } from './middleware/rateLimit.js';
-import { serveApp, serveFrontend, serveIcon192, serveIcon512, serveManifest, serveServiceWorker, serveStyle } from './routes/frontend.js';
+import {
+  serveApp,
+  serveAppleTouchIcon,
+  serveFavicon32,
+  serveFaviconIco,
+  serveFrontend,
+  serveIcon192,
+  serveIcon192Png,
+  serveIcon512,
+  serveIcon512Png,
+  serveManifest,
+  serveOfflinePage,
+  serveServiceWorker,
+  serveStyle
+} from './routes/frontend.js';
 import { verify as verifyJwt } from './lib/jwt.js';
 
 const app = new Hono();
@@ -102,9 +116,16 @@ app.route('/api/ai', aiRoutes);
 app.get('/style.css', serveStyle);
 app.get('/app.js', serveApp);
 app.get('/manifest.json', serveManifest);
+app.get('/manifest.webmanifest', serveManifest);
 app.get('/sw.js', serveServiceWorker);
+app.get('/offline.html', serveOfflinePage);
 app.get('/icon-192.svg', serveIcon192);
 app.get('/icon-512.svg', serveIcon512);
+app.get('/icon-192.png', serveIcon192Png);
+app.get('/icon-512.png', serveIcon512Png);
+app.get('/apple-touch-icon.png', serveAppleTouchIcon);
+app.get('/favicon-32x32.png', serveFavicon32);
+app.get('/favicon.ico', serveFaviconIco);
 app.get('*', serveFrontend);
 
 export { ChatRoom };

@@ -1,0 +1,70 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="192dp"
+    android:height="192dp"
+    android:viewportWidth="192"
+    android:viewportHeight="192">
+    <!-- Outer Brand Emblem Circle -->
+    <path
+        android:fillColor="#094A42"
+        android:pathData="M96,16 A80,80 0 1,0 96,176 A80,80 0 1,0 96,16 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#25D366"
+        android:strokeWidth="3"
+        android:pathData="M96,16 A80,80 0 1,0 96,176 A80,80 0 1,0 96,16 Z" />
+
+    <!-- Chat bubble container with tail -->
+    <path
+        android:fillColor="#0D1E1B"
+        android:pathData="M56,52 H136 A20,20 0 0,1 156,72 V108 A20,20 0 0,1 136,128 H78 L54,146 V128 H56 A20,20 0 0,1 36,108 V72 A20,20 0 0,1 56,52 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#25D366"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M56,52 H136 A20,20 0 0,1 156,72 V108 A20,20 0 0,1 136,128 H78 L54,146 V128 H56 A20,20 0 0,1 36,108 V72 A20,20 0 0,1 56,52 Z" />
+
+    <!-- Left Eye Eyelid Arc -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M64,84 C70,76 80,76 86,84" />
+    <!-- Left Eye Pupil -->
+    <path
+        android:fillColor="#25D366"
+        android:pathData="M75,88 A7,7 0 1,0 75,102 A7,7 0 1,0 75,88 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M73,91 A2.5,2.5 0 1,0 73,96 A2.5,2.5 0 1,0 73,91 Z" />
+
+    <!-- Right Eye Eyelid Arc -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M106,84 C112,76 122,76 128,84" />
+    <!-- Right Eye Pupil -->
+    <path
+        android:fillColor="#25D366"
+        android:pathData="M117,88 A7,7 0 1,0 117,102 A7,7 0 1,0 117,88 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M115,91 A2.5,2.5 0 1,0 115,96 A2.5,2.5 0 1,0 115,91 Z" />
+
+    <!-- Sparkle dot -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M96,78 A3,3 0 1,0 96,84 A3,3 0 1,0 96,78 Z" />
+
+    <!-- Smile curve -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#25D366"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M83,110 C91,118 101,118 109,110" />
+</vector>
