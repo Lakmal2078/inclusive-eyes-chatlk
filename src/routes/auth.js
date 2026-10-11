@@ -90,3 +90,45 @@ authRoutes.post('/logout', async c => {
   }
   return c.json({ success: true, message: 'Logged out successfully' });
 });
+
+authRoutes.post('/reset-password', async c => {
+  const body = await jsonBody(c);
+  if (!body) return c.json({ error: 'Request body is required' }, 400);
+
+  const identifier = (body.username || body.identifier)?.trim();
+  const phone = body.phone?.replace(/[\s\-]/g, '').trim();
+  const newPassword = body.newPassword || body.password;
+
+  if (!identifier || !validateUsername(identifier)) {
+    return c.json({ error: 'Valid username is required' }, 400);
+  }
+  if (!phone || !validatePhone(phone)) {
+    return c.json({ error: 'Valid phone number with country code (e.g. +94771234567) is required' }, 400);
+  }
+  if (!validPassword(newPassword)) {
+    return c.json({ error: 'New password must be between 8 and 128 characters' }, 400);
+  }
+
+  const user = await c.env.DB.prepare('SELECT * FROM users WHERE username = ? AND phone = ?')
+    .bind(identifier, phone)
+    .first();
+
+  if (!user) {
+    return c.json({ error: 'No account found matching this username and phone number' }, 404);
+  }
+
+  const passwordRecord = await hashPassword(newPassword);
+  const now = Date.now();
+
+  await c.env.DB.prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?')
+    .bind(encodePasswordRecord(passwordRecord), now, user.id)
+    .run();
+
+  return c.json({
+    success: true,
+    message: 'Password reset successfully',
+    user: publicUser(user),
+    token: await issueToken(user, c.env)
+  });
+});
+

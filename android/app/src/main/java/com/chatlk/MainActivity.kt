@@ -79,14 +79,62 @@ class MainActivity : ComponentActivity() {
 
         setupWebView()
 
-        // Handle hardware back button navigation
+        // Handle hardware back button navigation with in-app handling & double-tap to exit
+        var backPressedTime: Long = 0
+        var backToast: Toast? = null
+
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (webView.canGoBack()) {
                     webView.goBack()
-                } else {
-                    isEnabled = false
-                    onBackPressedDispatcher.onBackPressed()
+                    return
+                }
+
+                val jsCheck = """
+                    (function() {
+                        const modal = document.querySelector('.modal-backdrop');
+                        if (modal) {
+                            modal.remove();
+                            return true;
+                        }
+                        const shell = document.querySelector('.shell.chat-open');
+                        if (shell) {
+                            shell.classList.remove('chat-open');
+                            return true;
+                        }
+                        const overlay = document.querySelector('#call-overlay:not(.hidden)');
+                        if (overlay) {
+                            document.querySelector('#end-call')?.click();
+                            return true;
+                        }
+                        const authBack = document.querySelector('#auth-back-to-login');
+                        if (authBack) {
+                            authBack.click();
+                            return true;
+                        }
+                        return false;
+                    })()
+                """.trimIndent()
+
+                webView.evaluateJavascript(jsCheck) { result ->
+                    if (result == "true") {
+                        return@evaluateJavascript
+                    }
+
+                    val currentTime = System.currentTimeMillis()
+                    if (currentTime - backPressedTime < 2000) {
+                        backToast?.cancel()
+                        finish()
+                    } else {
+                        backPressedTime = currentTime
+                        backToast?.cancel()
+                        backToast = Toast.makeText(
+                            this@MainActivity,
+                            getString(R.string.back_exit_confirm),
+                            Toast.LENGTH_SHORT
+                        )
+                        backToast?.show()
+                    }
                 }
             }
         })
