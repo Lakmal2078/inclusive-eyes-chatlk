@@ -1,0 +1,45 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-build.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'android/**'
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    name: Build Debug APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x android/gradlew
+
+      - name: Build Debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload Debug APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChatLK-Debug-APK
+          path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 14
