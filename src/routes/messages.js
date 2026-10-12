@@ -262,6 +262,35 @@ messageRoutes.post('/chats/:id/messages', messageRateLimiter, async c => {
   const mediaThumbnail = typeof body?.mediaThumbnail === 'string' ? body.mediaThumbnail.slice(0, 1000) : null;
   if (!text && !mediaUrl) return c.json({ error: 'Message text or media is required' }, 400);
 
+  // REC-06: Idempotency Key check (prevents duplicate messages on cellular reconnect)
+  const clientId = typeof body?.clientId === 'string' ? body.clientId.slice(0, 100) : (typeof body?.client_id === 'string' ? body.client_id.slice(0, 100) : null);
+  if (clientId) {
+    const existing = await c.env.DB.prepare(
+      'SELECT m.*, u.display_name AS sender_name FROM messages m JOIN users u ON u.id = m.sender_id WHERE m.client_id = ?'
+    ).bind(clientId).first();
+    if (existing) {
+      let existingTranslations = null;
+      try { existingTranslations = existing.translations ? JSON.parse(existing.translations) : null; } catch {}
+      return c.json({
+        message: {
+          id: existing.id,
+          chat_id: existing.chat_id,
+          sender_id: existing.sender_id,
+          sender_name: existing.sender_name,
+          text: existing.text,
+          message_type: existing.message_type,
+          media_url: existing.media_url,
+          status: existing.status,
+          translations: existingTranslations,
+          moderation_status: existing.moderation_status,
+          client_id: existing.client_id,
+          created_at: existing.created_at,
+          duplicate: true
+        }
+      }, 200);
+    }
+  }
+
   // Feature 10: AI Content Moderation
   let moderationStatus = 'clean';
   let moderationReason = null;
@@ -291,8 +320,8 @@ messageRoutes.post('/chats/:id/messages', messageRateLimiter, async c => {
 
   await c.env.DB.batch([
     c.env.DB.prepare(
-      `INSERT INTO messages (id, chat_id, sender_id, text, message_type, media_url, media_thumbnail, media_size, reply_to_id, status, translations, moderation_status, moderation_reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(id, chatId, userId, text, type, mediaUrl, mediaThumbnail, Number(body?.mediaSize) || null, body?.replyToId || null, 'sent', translationsJson, moderationStatus, moderationReason, now),
+      `INSERT INTO messages (id, chat_id, sender_id, text, message_type, media_url, media_thumbnail, media_size, reply_to_id, status, translations, moderation_status, moderation_reason, client_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(id, chatId, userId, text, type, mediaUrl, mediaThumbnail, Number(body?.mediaSize) || null, body?.replyToId || null, 'sent', translationsJson, moderationStatus, moderationReason, clientId, now),
     c.env.DB.prepare('UPDATE chats SET updated_at = ? WHERE id = ?').bind(now, chatId)
   ]);
 
@@ -340,6 +369,7 @@ messageRoutes.post('/chats/:id/messages', messageRateLimiter, async c => {
       status: 'sent',
       translations: translationsJson ? JSON.parse(translationsJson) : null,
       moderation_status: moderationStatus,
+      client_id: clientId,
       created_at: now
     }
   }, 201);

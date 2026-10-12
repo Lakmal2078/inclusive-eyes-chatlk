@@ -294,6 +294,35 @@ export class ChatRoom {
         }
       }
 
+      // REC-06: Message Idempotency Support (client_id)
+      const clientId = typeof data.clientId === 'string' ? data.clientId.slice(0, 100) : (typeof data.client_id === 'string' ? data.client_id.slice(0, 100) : null);
+      if (clientId && this.env.DB) {
+        const existing = await this.env.DB.prepare(
+          'SELECT m.*, u.display_name AS sender_name FROM messages m JOIN users u ON u.id = m.sender_id WHERE m.client_id = ?'
+        ).bind(clientId).first();
+        if (existing) {
+          let existingTranslations = null;
+          try { existingTranslations = existing.translations ? JSON.parse(existing.translations) : null; } catch {}
+          const dupMessage = {
+            id: existing.id,
+            chatId: existing.chat_id,
+            senderId: existing.sender_id,
+            senderName: existing.sender_name || session.username,
+            text: existing.text,
+            messageType: existing.message_type,
+            mediaUrl: existing.media_url,
+            mediaThumbnail: existing.media_thumbnail,
+            status: existing.status,
+            translations: existingTranslations,
+            moderationStatus: existing.moderation_status,
+            clientId: existing.client_id,
+            createdAt: existing.created_at,
+            duplicate: true
+          };
+          return socket.send(JSON.stringify({ type: 'message', message: dupMessage }));
+        }
+      }
+
       // Moderation
       let moderationStatus = 'clean';
       let moderationReason = null;
@@ -336,12 +365,13 @@ export class ChatRoom {
         status,
         translations,
         moderationStatus,
+        clientId,
         createdAt: now
       };
 
       if (this.env.DB) {
         await this.env.DB.prepare(
-          `INSERT INTO messages (id, chat_id, sender_id, text, message_type, media_url, media_thumbnail, status, translations, moderation_status, moderation_reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO messages (id, chat_id, sender_id, text, message_type, media_url, media_thumbnail, status, translations, moderation_status, moderation_reason, client_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).bind(
           id,
           session.chatId,
@@ -354,6 +384,7 @@ export class ChatRoom {
           translations ? JSON.stringify(translations) : null,
           moderationStatus,
           moderationReason,
+          clientId,
           now
         ).run();
 

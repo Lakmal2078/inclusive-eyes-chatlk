@@ -2,4 +2,6 @@
     <string name="app_name">ChatLK</string>
     <string name="chatlk_server_url">https://chatlk.agent-1xfast-srilanka.workers.dev</string>
     <string name="back_exit_confirm">Press back again to exit</string>
+    <string name="notification_channel_messages_name">ChatLK Messages</string>
+    <string name="notification_channel_messages_desc">Incoming chat notifications, voice notes and call alerts</string>
 </resources>

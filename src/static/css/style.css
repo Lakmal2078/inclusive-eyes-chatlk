@@ -218,6 +218,13 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .whatsapp-bubble.sent { align-self: flex-end; border-radius: 7px 7px 2px 7px; background: #d9fdd3; }
 .whatsapp-bubble p { margin: 0 0 2px; color: #111b21; font-size: .84rem; line-height: 1.42; white-space: pre-wrap; overflow-wrap: anywhere; }
 .whatsapp-bubble small { display: block; margin-top: 1px; color: #667781; font-size: .59rem; line-height: 1; text-align: right; }
+.translation-badge-btn { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; padding: 2px 7px; border: 1px solid rgba(18,140,126,0.3); border-radius: 12px; background: rgba(18,140,126,0.08); color: #075e54; font-size: 0.65rem; font-weight: 700; cursor: pointer; transition: all .15s ease; }
+.translation-badge-btn:hover { background: rgba(18,140,126,0.18); }
+.translation-card { margin-top: 5px; padding: 6px 9px; border-left: 3px solid #128c7e; border-radius: 4px; background: rgba(0,0,0,0.03); font-size: 0.8rem; line-height: 1.38; }
+.translation-card-item { margin-bottom: 3px; }
+.translation-card-item:last-child { margin-bottom: 0; }
+.translation-lang-label { font-weight: 700; font-size: 0.68rem; color: #128c7e; margin-right: 4px; }
+.translation-lang-text { color: #222; }
 .sender-name { display: block; margin-bottom: 4px; color: var(--forest); font-size: .68rem; }
 .message-ticks { margin-left: 4px; color: #7f9192; font-weight: 800; letter-spacing: -.15em; }
 .message-ticks.read { color: #53bdeb; }
