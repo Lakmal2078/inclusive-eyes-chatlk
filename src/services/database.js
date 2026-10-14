@@ -69,10 +69,10 @@ export const dbService = {
       "INSERT OR IGNORE INTO chat_participants (id, chat_id, user_id, role, joined_at) VALUES (?, ?, ?, 'admin', ?)"
     ).bind(crypto.randomUUID(), groupId, creatorId, Date.now()).run();
 
-    // 4. Add initial members (capped at 50)
+    // 4. Add initial members (capped at 256)
     const membersToAdd = (data.memberIds || [])
       .filter(id => id !== creatorId)
-      .slice(0, 49);
+      .slice(0, 255);
 
     for (const memberId of membersToAdd) {
       await db.prepare(

@@ -14,6 +14,18 @@ import {
 import css from '../static/css/style.js';
 import js from '../static/app-bundle.js';
 
+let appJsCode = js;
+try {
+  if (typeof process !== 'undefined' && process.versions?.node) {
+    const { readFileSync, existsSync } = await import('node:fs');
+    const { fileURLToPath } = await import('node:url');
+    const appPath = fileURLToPath(new URL('../static/js/app.js', import.meta.url));
+    if (existsSync(appPath)) {
+      appJsCode = readFileSync(appPath, 'utf8');
+    }
+  }
+} catch {}
+
 function base64ToUint8Array(b64) {
   const binary = atob(b64);
   const bytes = new Uint8Array(binary.length);
@@ -52,7 +64,7 @@ export function serveFrontend(c) {
 }
 
 export const serveStyle = c => c.body(css, { headers: { 'content-type': 'text/css; charset=utf-8' } });
-export const serveApp = c => c.body(js, { headers: { 'content-type': 'text/javascript; charset=utf-8' } });
+export const serveApp = c => c.body(appJsCode, { headers: { 'content-type': 'text/javascript; charset=utf-8' } });
 export const serveManifest = c => c.body(manifestJson, { headers: { 'content-type': 'application/manifest+json; charset=utf-8' } });
 export const serveServiceWorker = c => c.body(serviceWorker, { headers: { 'content-type': 'application/javascript; charset=utf-8' } });
 export const serveOfflinePage = c => c.html(offlineHtml);

@@ -89,8 +89,8 @@ groupRoutes.post('/:id/members', async c => {
     return c.json({ error: 'Group not found' }, 404);
   }
 
-  if ((group.member_count || 0) >= 50) {
-    return c.json({ error: 'Group has reached maximum limit of 50 members' }, 400);
+  if ((group.member_count || 0) >= 256) {
+    return c.json({ error: 'Group has reached maximum limit of 256 members' }, 400);
   }
 
   const role = body.role === 'admin' ? 'admin' : 'member';

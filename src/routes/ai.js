@@ -57,3 +57,29 @@ aiRoutes.post('/search', async c => {
   const result = await c.env.DB.prepare('SELECT * FROM messages WHERE chat_id = ? AND text LIKE ? AND is_deleted = 0 ORDER BY created_at DESC LIMIT 50').bind(body.chatId, `%${String(body.query).slice(0, 100)}%`).all();
   return c.json({ messages: result.results || [], semantic: false });
 });
+
+aiRoutes.post('/transcribe', async c => {
+  if (!c.env.AI) return c.json({ error: 'AI binding not available' }, 503);
+  let audioData;
+  const contentType = c.req.header('content-type') || '';
+  if (contentType.includes('application/json')) {
+    const body = await jsonBody(c);
+    if (!body?.audioBase64) return c.json({ error: 'audioBase64 is required' }, 400);
+    const binaryStr = atob(body.audioBase64);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+    audioData = bytes;
+  } else {
+    audioData = await c.req.arrayBuffer();
+  }
+  try {
+    const result = await c.env.AI.run('@cf/openai/whisper', {
+      audio: [...new Uint8Array(audioData)]
+    });
+    return c.json({ text: sanitizeText(result?.text || ''), vtt: result?.vtt || null });
+  } catch (err) {
+    console.error('Whisper transcription error:', err);
+    return c.json({ error: 'Audio transcription failed', details: err.message }, 500);
+  }
+});
+
