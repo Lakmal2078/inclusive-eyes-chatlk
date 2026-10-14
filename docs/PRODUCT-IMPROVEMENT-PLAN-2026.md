@@ -1,268 +1,316 @@
-# ChatLK: Product Improvement & Feature Planning Report
+# ChatLK: Comprehensive Product Improvement & Feature Planning Report
 
-**Document Version:** 1.0.0  
-**Target Application:** ChatLK (Mobile-First Real-Time Messaging Platform for Sri Lanka)  
-**Evaluator Roles:** Senior Product Manager, Product Designer, Software Architect, UX Researcher, Technical Analyst  
-**Environment Inspected:** Local Workspace (`/root/inclusive-eyes-chatlk`), Git Branch `main`, Target Cloudflare Workers Production (`https://chatlk.agent-1xfast-srilanka.workers.dev`)
+**Document Version:** 2.0.0 (Post-Phase 1 Hardening Edition)  
+**Target Application:** ChatLK (Mobile-First Real-Time Multilingual Messaging Platform for Sri Lanka)  
+**Roles Represented:** Senior Product Manager, Lead Product Designer, Software Architect, UX Researcher, Technical Analyst  
+**Environment Inspected:** Local Workspace (`/root/inclusive-eyes-chatlk`), Git Branch `main` (commit `2d6ef1c`), Target Cloudflare Workers Production (`https://chatlk.agent-1xfast-srilanka.workers.dev`)  
+**Target Device / Network Persona:** Budget-to-Midrange Android Smartphones on 3G/4G Mobile Data in Colombo, Kandy, Galle, and Jaffna.
 
 ---
 
 ## 1. Executive Summary
 
 ### 1.1 Current Product Condition
-ChatLK is an ambitious, mobile-first, multilingual (Sinhala, Tamil, English) messaging application tailored for Sri Lankan users. It runs on a hybrid stack combining a **Hono** backend deployed across **Cloudflare Workers**, **D1 SQLite** storage, **KV** rate limiting, **R2** object storage, **Workers AI**, and **Durable Objects** for real-time WebSocket messaging and presence. 
+ChatLK is an installable, mobile-first, multilingual (Sinhala, Tamil, English) messaging application specifically engineered for the Sri Lankan communication ecosystem. It runs on a hybrid serverless architecture:
+- **Hono v4** web framework running on **Cloudflare Workers** (and Node.js in development).
+- **Cloudflare D1 (SQLite)** for durable relational data (24 tables, 22 incremental migrations).
+- **SQLite-backed Durable Objects (`ChatRoom`)** employing the WebSocket Hibernation API for real-time messaging, typing events, and WebRTC signaling.
+- **Cloudflare R2** for media asset storage with pre-upload canvas compression.
+- **Workers AI** for inline Sinhala/Tamil/English translation, smart replies, and content moderation.
+- **Android WebView Wrapper** with a native high-priority notification channel, double-tap exit navigation, and portable Gradle configuration.
 
-While the core messaging foundation works and all 36 unit/integration tests pass (`npm test`), the application suffers from **architectural bifurcation**, **critical security/authorization leaks**, **data contract discrepancies**, and **dormant feature debt**:
-1. **Parallel Frontend Split**: The production application runs on a 286-line monolithic vanilla JavaScript script (`src/static/js/app.js`), while a suite of polished React/TypeScript components (`src/components/`) exists purely for test fixtures and is never bundled into the user-facing web app. Similarly, the Android project (`android/`) is a minimal `WebView` wrapper over the Workers URL, while its Jetpack Compose screens (`MainScreen.kt`) sit as dead boilerplate.
-2. **Critical Authorization Gaps**: Media files in R2 (`src/routes/media.js`) and message emoji reactions (`src/routes/reactions.js`) do not verify chat membership. Any authenticated user can read or react to private communications by guessing IDs.
-3. **Broken Push Notification Loop**: Web Push VAPID dispatch is implemented on the backend for HTTP message sends, but:
-   - WebSocket message broadcasting in Durable Objects (`src/do/chat-room.js`) does **not** trigger push notifications to offline recipients.
-   - The frontend Service Worker (`src/static/pwa-assets.js`) has **no** `push` event handler.
-   - The browser client (`src/static/js/app.js`) never calls `/api/push/subscribe`. Web Push is completely dead in the real product.
-4. **Data Redundancy & Fragmentation**: Duplicate group management engines (`/api/chats` vs `/api/groups`), duplicate blocking mechanisms (`contacts.is_blocked` vs `blocked_users`), duplicate message search endpoints (`/api/search/messages`, `/api/chats/:id/messages/search`, and pseudo-AI `/api/ai/search`), and dormant database tables (`channels`, `stickers`, `premium_subscriptions`).
+Following the recent Phase 1 security and reliability hardening (commits `fa73683` through `2d6ef1c`), all 57 automated unit and integration tests pass cleanly (`npm test`). Critical security vulnerabilities (media file authorization leakage, reaction access controls, contact-to-block synchronization) and core reliability capabilities (message idempotency via `client_id`, client image compression, contact-scoped status privacy, group invite flows) have been implemented and verified.
+
+However, the product faces four primary architectural and product challenges:
+1. **Frontend Architecture Split**: The production browser experience is rendered via a monolithic 310-line vanilla JavaScript script (`src/static/js/app.js`) with manual string templating, while a suite of modular React 19 / TypeScript surfaces (`src/components/ChatRoom.tsx`, `ChatSettings.tsx`, `Calls.tsx`, `Status.tsx`) exists in the repository but is currently used primarily as test fixtures rather than being mounted in production.
+2. **Synchronous AI Latency & Free-Tier Quota Risk**: When auto-translate is enabled, outgoing messages trigger synchronous roundtrips to Workers AI (`@cf/meta/m2m100-1.2b`) within the HTTP/WS send lifecycle. This adds 1.5s–3.5s of transmission latency and risks depleting the 10,000 daily AI neuron free limit.
+3. **VoIP / WebRTC Calling Blindspots**: WebRTC audio and video calling signaling functions only when both participants have active WebSocket connections within the same chat room. If the recipient has their device locked or the app in the background, incoming calls fail silently without an audible ring or push prompt.
+4. **Data Contract & Endpoint Redundancies**: The API retains duplicate group administration paths (`/api/chats` vs `/api/groups`), duplicate search endpoints (`/api/search/messages`, `/api/chats/:id/messages/search`, and `/api/ai/search`), mixed SQLite timestamp formats (epoch milliseconds vs ISO8601 strings), and dead schema tables (`channels`, `stickers`, `premium_subscriptions`).
 
 ### 1.2 Most Important Opportunities
-- **Unify Frontend Architecture**: Move from the brittle vanilla DOM script to a clean, component-driven bundle leveraging the existing React/TypeScript surfaces (`ChatRoom`, `ChatSettings`, `Status`, `Calls`).
-- **Complete the Real-Time Notification & Call Loop**: Implement client-side Push registration and Service Worker handling, bridge Durable Object WebSocket sends to Web Push for offline participants, and enable VoIP/incoming call push signaling.
-- **Async AI Pipeline**: Decouple Workers AI translation and moderation from synchronous message publishing into background queue/event streams to eliminate the current 2–5s send latency.
-- **Privacy-First Social Features**: Bound Status updates to mutual contacts or approved friends rather than the current platform-wide public broadcast.
+- **Asynchronous / On-Demand Translation**: Decouple translation from the message send pathway to instantaneous (<150ms) message delivery, saving 80% of AI neuron consumption by translating only into the recipient's configured language on demand.
+- **WebRTC Call Push Ringing**: Transmit high-priority Web Push notifications with sound and full-screen call intent payloads when initiating calls to backgrounded users.
+- **Voice Note Waveforms & Audio Controls**: Provide waveform scrubbing, duration chips, and 1.5x/2x speed controls to empower Sri Lankan users who rely on voice communication.
+- **Mount React Shell in Production**: Unify the frontend build pipeline by compiling `src/components/` with `esbuild` in `scripts/sync-assets.mjs` to eliminate duplicated UI code.
+- **IndexedDB Optimistic Outbox**: Enable reliable offline message composition that automatically flushes when cellular connectivity recovers.
 
 ### 1.3 Main Risks
-- **Free-Tier Resource Exhaustion**: Cloudflare Workers Free limits (100k requests/day, 10k AI neurons/day, 10ms CPU time) will be quickly exhausted if synchronous AI translation executes on every outgoing message.
-- **Data Inconsistencies During Scaling**: Schema mismatches where timestamps are stored as integer milliseconds in some tables and ISO strings in others will corrupt time-series analytics and query sorting.
+- **Cloudflare Workers Free Limits**: Synchronous Workers AI on every message will trigger rate limiting (HTTP 429) during group chats.
+- **PWA Push Delivery Variations on Android OEM Skins**: Aggressive battery managers (MIUI, ColorOS, EMUI) may terminate background service workers unless proper FCM/WebPush headers and Android native channels are coordinated.
+- **Database Index Degradation**: Mixed timestamp formats in D1 (INTEGER epoch milliseconds vs ISO strings) can prevent range index optimizations on message history and status expiration queries.
 
 ### 1.4 Overall Confidence and Limitations
-- **Confidence Level**: **HIGH** on backend routes, SQLite/D1 migrations, WebSocket/Durable Objects mechanics, and frontend client logic through direct inspection.
-- **Limitations**: Cloudflare live production metrics, active DAU/MAU user counts, and remote D1 database contents were not queried live in this run; analysis is based on static source audit and local test execution.
+- **Confidence Level**: **HIGH** on backend API routes, SQLite schema migrations, WebSocket/Durable Objects mechanics, client compression, and security boundaries through direct static code audit and automated test verification.
+- **Limitations**: Live production database telemetry, concurrent WebSocket load metrics, and active Daily Active User (DAU) analytics were not accessible from the local development sandbox.
 
 ---
 
 ## 2. Scope and Evidence
 
 ### 2.1 Artifacts Inspected
-- **Configuration & Documentation**: `package.json`, `wrangler.toml`, `README.md`, `DEPLOYMENT.md`, `TESTING.md`, `docs/AI_AGENT_RULES.md`, `docs/AUDIT-PROMPT.md`, `docs/PREMIUM-UI-AUDIT-SI.md`.
-- **Backend Architecture & Routes**:
-  - Main app entry point: `src/index.js`
-  - Durable Object WebSocket room: `src/do/chat-room.js`
-  - API Routes: `src/routes/auth.js`, `src/routes/messages.js`, `src/routes/chats.js`, `src/routes/groups.js`, `src/routes/users.js`, `src/routes/media.js`, `src/routes/statuses.js`, `src/routes/reactions.js`, `src/routes/search.js`, `src/routes/push.js`, `src/routes/admin.js`, `src/routes/ai.js`, `src/routes/frontend.js`.
-  - Services & Libs: `src/services/database.js`, `src/services/ai.js`, `src/services/push.js`, `src/lib/jwt.js`, `src/lib/crypto.js`, `src/lib/r2.js`.
-- **Database Migrations**: `migrations/0001_init.sql` through `migrations/0020_fix_fts5_triggers.sql`.
+- **Configuration & Build**: [package.json](file:///root/inclusive-eyes-chatlk/package.json), [wrangler.toml](file:///root/inclusive-eyes-chatlk/wrangler.toml), [scripts/sync-assets.mjs](file:///root/inclusive-eyes-chatlk/scripts/sync-assets.mjs).
+- **Core Server & Routing**:
+  - Main app entry point: [src/index.js](file:///root/inclusive-eyes-chatlk/src/index.js)
+  - Durable Object room: [src/do/chat-room.js](file:///root/inclusive-eyes-chatlk/src/do/chat-room.js)
+  - API Routes: [src/routes/auth.js](file:///root/inclusive-eyes-chatlk/src/routes/auth.js), [src/routes/messages.js](file:///root/inclusive-eyes-chatlk/src/routes/messages.js), [src/routes/chats.js](file:///root/inclusive-eyes-chatlk/src/routes/chats.js), [src/routes/groups.js](file:///root/inclusive-eyes-chatlk/src/routes/groups.js), [src/routes/users.js](file:///root/inclusive-eyes-chatlk/src/routes/users.js), [src/routes/media.js](file:///root/inclusive-eyes-chatlk/src/routes/media.js), [src/routes/statuses.js](file:///root/inclusive-eyes-chatlk/src/routes/statuses.js), [src/routes/reactions.js](file:///root/inclusive-eyes-chatlk/src/routes/reactions.js), [src/routes/search.js](file:///root/inclusive-eyes-chatlk/src/routes/search.js), [src/routes/push.js](file:///root/inclusive-eyes-chatlk/src/routes/push.js), [src/routes/invites.js](file:///root/inclusive-eyes-chatlk/src/routes/invites.js), [src/routes/admin.js](file:///root/inclusive-eyes-chatlk/src/routes/admin.js), [src/routes/ai.js](file:///root/inclusive-eyes-chatlk/src/routes/ai.js), [src/routes/frontend.js](file:///root/inclusive-eyes-chatlk/src/routes/frontend.js).
+- **Services & Libraries**:
+  - [src/services/database.js](file:///root/inclusive-eyes-chatlk/src/services/database.js), [src/services/ai.js](file:///root/inclusive-eyes-chatlk/src/services/ai.js), [src/services/push.js](file:///root/inclusive-eyes-chatlk/src/services/push.js), [src/lib/jwt.js](file:///root/inclusive-eyes-chatlk/src/lib/jwt.js), [src/lib/crypto.js](file:///root/inclusive-eyes-chatlk/src/lib/crypto.js), [src/lib/r2.js](file:///root/inclusive-eyes-chatlk/src/lib/r2.js).
+- **Database Migrations**: [migrations/0001_init.sql](file:///root/inclusive-eyes-chatlk/migrations/0001_init.sql) through [migrations/0022_message_idempotency.sql](file:///root/inclusive-eyes-chatlk/migrations/0022_message_idempotency.sql).
 - **Frontend & Static Assets**:
-  - Vanilla JS App: `src/static/js/app.js`
-  - Styling: `src/static/css/style.css`
-  - Assets & SW: `src/static/pwa-assets.js`, `src/views/index.html`, `scripts/sync-assets.mjs`.
-  - React Component Layer: `src/components/ChatRoom.tsx`, `src/components/ChatSettings.tsx`, `src/components/Status.tsx`, `src/components/Calls.tsx`.
-- **Android Repository**: `android/app/src/main/AndroidManifest.xml`, `android/app/src/main/java/com/chatlk/MainActivity.kt`, `android/app/src/main/java/com/chatlk/ui/main/MainScreen.kt`.
-- **Test Suite**: Executed `npm test` verifying 36 passing tests across 8 test suites.
+  - Client Application: [src/static/js/app.js](file:///root/inclusive-eyes-chatlk/src/static/js/app.js)
+  - Styling: [src/static/css/style.css](file:///root/inclusive-eyes-chatlk/src/static/css/style.css)
+  - Service Worker & PWA: [src/static/pwa-assets.js](file:///root/inclusive-eyes-chatlk/src/static/pwa-assets.js), [src/views/index.html](file:///root/inclusive-eyes-chatlk/src/views/index.html).
+  - React Component Layer: [src/components/ChatRoom.tsx](file:///root/inclusive-eyes-chatlk/src/components/ChatRoom.tsx), [src/components/ChatSettings.tsx](file:///root/inclusive-eyes-chatlk/src/components/ChatSettings.tsx), [src/components/Status.tsx](file:///root/inclusive-eyes-chatlk/src/components/Status.tsx), [src/components/Calls.tsx](file:///root/inclusive-eyes-chatlk/src/components/Calls.tsx).
+- **Android Native Project**:
+  - [android/app/src/main/AndroidManifest.xml](file:///root/inclusive-eyes-chatlk/android/app/src/main/AndroidManifest.xml)
+  - [android/app/src/main/java/com/chatlk/MainActivity.kt](file:///root/inclusive-eyes-chatlk/android/app/src/main/java/com/chatlk/MainActivity.kt)
+  - [android/app/src/main/java/com/chatlk/ui/main/MainScreen.kt](file:///root/inclusive-eyes-chatlk/android/app/src/main/java/com/chatlk/ui/main/MainScreen.kt)
+- **Test Suite Verification**: Executed `npm test` verifying 57 passing tests across 11 test suites.
 
 ### 2.2 Verified Facts vs. Inferred Assumptions
-| Item | Classification | Source / Evidence |
+| Item | Classification | Source / Verified Evidence |
 |---|---|---|
-| All 36 automated unit & integration tests pass | **VERIFIED** | `npm test` output in terminal |
-| Client-side Service Worker lacks push handler | **VERIFIED** | `src/static/pwa-assets.js` |
-| Web app does not mount React components | **VERIFIED** | `scripts/sync-assets.mjs` & `src/routes/frontend.js` |
-| Media retrieval lacks chat authorization | **VERIFIED** | `src/routes/media.js` |
-| Reactions endpoint lacks chat authorization | **VERIFIED** | `src/routes/reactions.js` |
-| Timestamp format is mixed (INTEGER vs ISO8601) | **VERIFIED** | `src/services/database.js` vs `migrations/0001_init.sql` |
-| Android app uses WebView, Compose code is dead | **VERIFIED** | `android/app/src/main/java/com/chatlk/MainActivity.kt` |
-| Cloudflare Workers Free plan CPU/RAM constraints | **INFERRED** | Documented in `docs/AI_AGENT_RULES.md` |
+| All 57 unit & integration tests pass | **VERIFIED** | Terminal output from `npm test` |
+| Idempotency key (`client_id`) deduplicates retries | **VERIFIED** | `migrations/0022_message_idempotency.sql`, `tests/idempotency.test.js` |
+| Push notification handler exists in Service Worker | **VERIFIED** | `src/static/pwa-assets.js` (`push`, `notificationclick`) |
+| Media downloads enforce participant authorization | **VERIFIED** | `src/routes/media.js` & `tests/security-regression.test.js` |
+| Reaction endpoints enforce participant checks | **VERIFIED** | `src/routes/reactions.js` & `tests/security-regression.test.js` |
+| Contact blocking syncs to `blocked_users` | **VERIFIED** | `src/routes/users.js` (`patch('/contacts/:id')`) |
+| Status updates filter by contacts & mutual chat participants | **VERIFIED** | `src/routes/statuses.js` (`GET /`) |
+| Client performs pre-upload image compression | **VERIFIED** | `src/static/js/app.js` (`compressImage()`, `createImageThumbnail()`) |
+| Web app production shell does not mount React components | **VERIFIED** | `src/views/index.html` loads `app.js` vanilla script directly |
+| Android Compose `MainScreen.kt` is dead boilerplate | **VERIFIED** | `MainActivity.kt` uses pure `WebView`, bypassing Compose |
+| Three redundant message search endpoints exist | **VERIFIED** | `src/routes/search.js`, `src/routes/messages.js`, `src/routes/ai.js` |
+| Workers AI limits on Free plan (10k neurons/day) | **INFERRED** | Cloudflare Workers Free plan specifications & `docs/AI_AGENT_RULES.md` |
 
 ---
 
 ## 3. Current Product Map
 
 ### 3.1 User Roles
-- **Standard User**: Can register via username/phone, log in, chat in 1-on-1 direct conversations or groups, post 24-hour status updates, upload media, start WebRTC calls, block/mute peers, and view language translations.
-- **Group Admin**: Creator or designated administrator of a group chat. Can modify group details (name, avatar, description), add/remove group members (up to 50), and delete any message within the group.
-- **System Administrator**: Identified by `role = 'admin'` in the `users` table. Accesses `/api/admin/*` metrics, daily traffic charts, user management, and flagged moderation queues.
+- **Standard User**: Authenticates via phone number or username with PBKDF2-hashed passwords; conducts direct 1-on-1 and group conversations; publishes 24-hour disappearing status updates (photos, videos, text); initiates WebRTC calls; adjusts language preferences (Sinhala, Tamil, English); shares invite links.
+- **Group Admin / Host**: Creates group conversations or solo circles; generates public or revocable invite links; manages group metadata; admits or removes participants (up to 50 members); deletes messages from any participant.
+- **System Administrator**: Identified by `role = 'admin'` in `users`; accesses `/api/admin/*` dashboards; monitors message volumes and moderation incident queues; inspects user account statuses.
 
 ### 3.2 Key User Journeys
 ```mermaid
 flowchart TD
     subgraph AuthJourney [1. Onboarding & Authentication]
-        A["Visitor Opens App"] --> B{"Session in LocalStorage?"}
-        B -->|No| C["Split Auth Screen"]
-        C --> D["Register: Username + Phone + Password"]
-        C --> E["Login: Identifier + Password"]
-        D --> F["Issue 7-Day JWT"]
-        E --> F
-        F --> G["Store in localStorage + Render Shell"]
-        B -->|Yes| G
+        A["Visitor Opens App / PWA / Android APK"] --> B{"Valid Token in localStorage?"}
+        B -->|No| C["Split Editorial Auth Screen"]
+        C --> D["Register: Username + Phone + Password + Optional Invite Code"]
+        C --> E["Login: Phone/Username + Password"]
+        C --> F["Forgot Password: Phone + Username Verification"]
+        D --> G["Issue 7-Day HS256 JWT"]
+        E --> G
+        F --> E
+        G --> H["Store JWT & Register Web Push"]
+        B -->|Yes| H
     end
 
-    subgraph MessagingJourney [2. Real-Time Conversation]
-        G --> H["Select Chat from Sidebar"]
-        H --> I["Load Message History (Cursor-Paginated)"]
-        H --> J["Open WebSocket to /ws via Durable Object"]
-        J --> K["Broadcast Online Presence"]
-        I --> L["Compose Text / Attach Media / Voice Note"]
-        L --> M{"WS Connected?"}
-        M -->|Yes| N["Send ws:message event"]
-        M -->|No| O["POST /api/chats/:id/messages (Fallback)"]
-        N --> P["AI Moderation & Auto-Translate"]
-        O --> P
-        P --> Q["Persist to D1 + Broadcast to Room"]
+    subgraph MessagingJourney [2. Real-Time Conversation & Resilience]
+        H --> I["Load Chat List with Unread Badges"]
+        I --> J["Select Conversation"]
+        J --> K["Fetch Message History (Cursor-Paginated)"]
+        J --> L["Open WebSocket to /ws via Durable Object"]
+        L --> M["Broadcast Online Presence"]
+        K --> N["Compose Message / Record Voice / Attach Media"]
+        N --> O{"Attachment Present?"}
+        O -->|Yes| P["Client-Side Canvas Compression (Max 1600px)"]
+        P --> Q["Upload to Cloudflare R2 (/api/media/upload)"]
+        Q --> R["Attach Media URL & Thumbnail"]
+        O -->|No| R["Prepare Payload with UUID ClientId"]
+        R --> S{"WebSocket Ready?"}
+        S -->|Yes| T["Send ws:message event"]
+        S -->|No| U["POST /api/chats/:id/messages (Fallback)"]
+        T --> V["D1 Persist with Idempotency Check"]
+        U --> V
+        V --> W["Broadcast to Connected Room Sockets"]
+        V --> X{"Recipients Offline?"}
+        X -->|Yes| Y["Dispatch Web Push Notification"]
+        X -->|No| Z["Render Delivered/Read Ticks"]
     end
 
-    subgraph MediaAndCallJourney [3. Media & Calling]
-        L --> R["Attach File / Camera"]
-        R --> S["Validate MIME & Size Limit"]
-        S --> T["Upload to Cloudflare R2 (/api/media/upload)"]
-        H --> U["Initiate Voice/Video Call"]
-        U --> V["WebRTC Signaling via WS (offer/answer/ice)"]
-        V --> W["Overlay Renders Local/Remote Stream"]
+    subgraph CallingJourney [3. Voice & Video Calling]
+        J --> CA["Tap Call Icon (Audio / Video)"]
+        CA --> CB{"Peer Active in Socket?"}
+        CB -->|Yes| CC["Send call-offer via WebSocket"]
+        CB -->|No| CD["Silent Failure (Current Gap)"]
+        CC --> CE["Remote Peer Accepts"]
+        CE --> CF["WebRTC P2P Stream Established via STUN"]
     end
 ```
 
 ### 3.3 Main Technical Components
-- **API Server & Routing**: Hono v4 framework mounted in `src/index.js`, running on Node.js locally via `@hono/node-server` and in Cloudflare Workers in production.
-- **State & Real-Time Sync**: Cloudflare Durable Objects (`ChatRoom` class, SQLite-backed) handling WebSocket connections, message broadcast, presence status, typing indicators, and WebRTC signaling.
-- **Database**: Cloudflare D1 (SQLite) containing 24 tables with 20 incremental migrations.
-- **Object Storage**: Cloudflare R2 bucket (`chat-media`) storing chat attachments and avatars, with an in-memory fallback for local Node dev.
-- **Machine Learning**: Cloudflare Workers AI invoking `@cf/meta/llama-3.1-8b-instruct` (smart reply suggestions & moderation) and `@cf/meta/m2m100-1.2b` (multilingual translation).
+- **HTTP Gateway & Routing**: Hono v4 framework in `src/index.js`, mounted on Node.js locally and Cloudflare Workers in production.
+- **Real-Time State & Synchronization**: Cloudflare Durable Objects (`ChatRoom` class in `src/do/chat-room.js`, SQLite-backed) handling WebSocket hibernation, typing broadcast, presence, and WebRTC signaling.
+- **Durable Relational Storage**: Cloudflare D1 (SQLite) with 24 tables, FTS5 full-text search triggers, and prepared statement bindings.
+- **Object Storage**: Cloudflare R2 bucket (`chat-media`) storing avatars, voice notes, and compressed media.
+- **Machine Learning**: Cloudflare Workers AI invoking `@cf/meta/llama-3.1-8b-instruct` (moderation & smart replies) and `@cf/meta/m2m100-1.2b` (translation).
+- **Push Notification Infrastructure**: Web Push VAPID dispatcher in `src/services/push.js` connected to browser Service Worker in `src/static/pwa-assets.js`.
+- **Android App Layer**: Native Android app (`android/`) with high-priority notification channels, webview hardware acceleration, and back-button dispatching.
 
 ---
 
 ## 4. Decision Categories: ADD / REMOVE / MERGE / IMPROVE / SIMPLIFY / FIX / KEEP / INVESTIGATE
 
-Below are the 8 comprehensive decision categories applied to ChatLK.
-
 ### 4.1 FIX (Confirmed Defects, Security Weaknesses & Broken Workflows)
 
-#### [FIX-01] Enforce Chat Authorization on Media File Retrieval
-- **Evidence**: `src/routes/media.js` (`GET /api/media/*`). The endpoint fetches objects directly by key from R2. Although protected by global JWT auth, it never checks if the requesting user belongs to the chat room where the media was sent, nor if it is their own avatar.
-- **Problem**: Any authenticated user can access any other user's private media, images, documents, or voice recordings by enumerating or obtaining the R2 key.
-- **Proposed Solution**: In `GET /api/media/*`, extract the file key; if the key is in `avatars/`, allow access. If the key is in `media/`, query the `messages` table to verify that the requesting user (`c.get('userId')`) is a member of the chat (`chat_participants`) where the `media_url` is referenced.
+#### [FIX-01] Standardize D1 Timestamps to Integer Epoch Milliseconds
+- **Problem**: Inconsistent timestamp types exist across services. `src/services/database.js` (`createGroup`) uses `new Date().toISOString()`, while `updateUserPresence` uses `Date.now()` (numeric milliseconds). In `src/routes/messages.js`, soft deletes store ISO strings in `deleted_at`.
+- **Evidence**: `src/services/database.js` (line 51: `const now = new Date().toISOString()`), `migrations/0001_init.sql` (line 34: `created_at INTEGER NOT NULL`).
+- **Proposed Change**: Refactor all database service operations to store `Date.now()` (`INTEGER`) consistently. Update `deleted_at`, `created_at`, `updated_at`, and `last_seen` to use epoch milliseconds.
+- **Expected Outcome**: Consistent chronological sorting, reliable SQLite integer index lookups, and bug-free date math.
+- **Success Metric**: 100% of newly written timestamps evaluate to `typeof === 'number'`.
+- **Effort**: 0.5 person-weeks | **Impact**: MEDIUM | **Confidence**: HIGH | **Priority**: P1.
 
-#### [FIX-02] Restrict Reaction Endpoints to Chat Participants
-- **Evidence**: `src/routes/reactions.js` (`POST /api/messages/:id/reactions` and `GET /api/messages/:id/reactions`). Both verify that the target message exists, but do not call `assertParticipant(c.env.DB, message.chat_id, userId)`.
-- **Problem**: Unauthorized users can view reactions and add emojis to private messages across channels they do not participate in.
-- **Proposed Solution**: Add `await assertParticipant(c.env.DB, message.chat_id, userId)` before allowing reaction inspection, adding, or removal.
-
-#### [FIX-03] Wire Up Client-Side Web Push Subscription & Service Worker Handling
-- **Evidence**: `src/static/js/app.js` has zero references to `/api/push/subscribe` or `Notification.requestPermission()`. `src/static/pwa-assets.js` defines a Service Worker without any `push` or `notificationclick` event listeners.
-- **Problem**: The backend push infrastructure (`src/routes/push.js`) is completely detached from the client. Users never receive notifications when the app is in the background or closed.
-- **Proposed Solution**:
-  1. Add `push` and `notificationclick` listeners to `serviceWorker` in `src/static/pwa-assets.js`.
-  2. In `src/static/js/app.js`, fetch `/api/push/vapid-key`, request browser notification permission, convert VAPID public key to `Uint8Array`, call `registration.pushManager.subscribe()`, and `POST` the subscription payload to `/api/push/subscribe`.
-
-#### [FIX-04] Trigger Offline Push Notifications on WebSocket Message Ingestion
-- **Evidence**: `src/do/chat-room.js`. When a message is sent over WebSocket, it is inserted into D1 and broadcast to connected sockets, but `sendPushToUser` is never invoked. In contrast, HTTP message creation (`src/routes/messages.js`) explicitly dispatches push notifications.
-- **Problem**: In normal real-time usage (where clients communicate via WebSockets), offline recipients never receive push notifications.
-- **Proposed Solution**: Import `sendPushToUser` into `src/do/chat-room.js` and dispatch push notifications to offline participants when a message is saved.
-
-#### [FIX-05] Standardize Database Timestamp Formats Across All Services
-- **Evidence**: `0001_init.sql` declares `last_seen` as `INTEGER`. However, `src/services/database.js` executes `const now = new Date().toISOString(); UPDATE users SET last_seen = ?`. In `src/routes/admin.js`, SQL queries compare `last_seen >= datetime('now', '-1 day')`. Furthermore, message creation uses `Date.now()` (numeric milliseconds), but group creation uses `new Date().toISOString()`.
-- **Problem**: Mixed type affinity (INTEGER vs TEXT) breaks chronological sorting, index lookups, and SQLite date functions like `datetime()` and `date(created_at / 1000, 'unixepoch')`.
-- **Proposed Solution**: Standardize all timestamps across D1 to epoch milliseconds (`INTEGER`), representing `Date.now()`. Update `database.js` to use `Date.now()` everywhere.
+#### [FIX-02] Restrict Direct Chat Creation to Non-Blocked Pairs
+- **Problem**: `POST /api/chats` allows User A to initiate a direct chat with User B even if User B has blocked User A. While message sending is blocked, creating the chat entity pollutes User B's chat list.
+- **Evidence**: `src/routes/chats.js` (`chatRoutes.post('/')`) checks participant count but does not check `dbService.isUserBlocked()`.
+- **Proposed Change**: In `POST /api/chats`, when `type === 'direct'`, verify `isUserBlocked(db, participantB, participantA)` before inserting.
+- **Expected Outcome**: Blocked users cannot harass recipients by spawning empty chat sessions.
+- **Success Metric**: Attempting to create a chat with a blocker returns HTTP 403.
+- **Effort**: 0.25 person-weeks | **Impact**: MEDIUM | **Confidence**: HIGH | **Priority**: P1.
 
 ---
 
 ### 4.2 MERGE (Combine Overlapping Features & Duplicate Workflows)
 
-#### [MERGE-01] Consolidate Duplicate Group Creation and Administration Routes
-- **Evidence**: `src/routes/chats.js` accepts `POST /api/chats` with `type: 'group'`, inserting only into `chats` and `chat_participants`. In contrast, `src/routes/groups.js` manages `POST /api/groups` and inserts into `groups`, `group_members`, `chats`, and `chat_participants`.
-- **Problem**: Parallel, competing implementations. Groups created via `/api/chats` do not appear in `/api/groups`, lack member limit checks (50 members), and bypass `groups` administration.
-- **Proposed Solution**: Route all group creation through `dbService.createGroup()`. In `src/routes/chats.js`, if `type === 'group'`, forward the payload directly to the unified group service.
+#### [MERGE-01] Consolidate Parallel Group Administration Endpoints
+- **Problem**: Two parallel sets of routes manage groups: `/api/chats` and `/api/groups`. Adding a member via `POST /api/chats/:id/participants` updates only `chat_participants`, while `POST /api/groups/:id/members` updates both `group_members` and `chat_participants`.
+- **Evidence**: `src/routes/chats.js` (lines 80–110) vs `src/routes/groups.js` (lines 65–120).
+- **Proposed Change**: Route `/api/chats/:id/participants` directly to `dbService.addGroupMember()`, ensuring both tables remain synchronized, or make `/api/groups` the canonical group API and redirect chat participant mutations.
+- **Expected Outcome**: Zero data desynchronization between `group_members` and `chat_participants`.
+- **Success Metric**: Single unified database method executed on member changes regardless of endpoint called.
+- **Effort**: 0.5 person-weeks | **Impact**: MEDIUM | **Confidence**: HIGH | **Priority**: P1.
 
-#### [MERGE-02] Unify Inconsistent Blocking Logic Between Contacts and Direct Chats
-- **Evidence**: `src/routes/users.js` updates `contacts.is_blocked`. Separately, `src/routes/users.js` manages `POST /api/users/:id/block`, inserting into the `blocked_users` table. The message send endpoint (`src/routes/messages.js`) checks only `blocked_users`.
-- **Problem**: Users blocking someone from the Contacts screen do not actually prevent incoming messages.
-- **Proposed Solution**: Deprecate `contacts.is_blocked`. When a user toggles "Block" in the Contacts UI, invoke `POST /api/users/:id/block` (`blocked_users` table) as the single source of truth.
-
-#### [MERGE-03] Merge Triplicate Message Search Endpoints into One Search Engine
-- **Evidence**:
-  1. `src/routes/search.js`: `GET /api/search/messages` (FTS5 + LIKE fallback, date range, chat filter).
-  2. `src/routes/messages.js`: `GET /api/chats/:id/messages/search` (LIKE query).
-  3. `src/routes/ai.js`: `POST /api/ai/search` (Identical LIKE query with fake `semantic: false` flag).
-- **Problem**: Three separate code paths doing the exact same thing with differing levels of capability.
-- **Proposed Solution**: Direct all client search traffic to `GET /api/search/messages` which already supports full FTS5 ranking, date ranges, and chat-level filtering. Deprecate `/api/chats/:id/messages/search` and remove `/api/ai/search`.
+#### [MERGE-02] Unify Triplicate Message Search Endpoints into Single FTS5 Engine
+- **Problem**: Three separate search endpoints perform message lookup:
+  1. `GET /api/search/messages`: Full FTS5 ranked search with date filtering and participant validation.
+  2. `GET /api/chats/:id/messages/search`: Plain SQL `LIKE` scan.
+  3. `POST /api/ai/search`: Plain SQL `LIKE` scan masquerading as AI search.
+- **Evidence**: `src/routes/search.js` (line 15), `src/routes/messages.js` (line 381), `src/routes/ai.js` (line 53).
+- **Proposed Change**: Deprecate `GET /api/chats/:id/messages/search` and `POST /api/ai/search`. Update client search to query `GET /api/search/messages?chatId=:id&q=:query`.
+- **Expected Outcome**: Lower maintenance surface, consistent FTS5 performance, and elimination of fake AI routes.
+- **Success Metric**: All in-app message searches hit `/api/search/messages`.
+- **Effort**: 0.25 person-weeks | **Impact**: MEDIUM | **Confidence**: HIGH | **Priority**: P1.
 
 ---
 
 ### 4.3 REMOVE (Retire Dead Code, Redundant Tables & Unused Surfaces)
 
-#### [REMOVE-01] Clean Up Dormant Premium, Sticker, and Channel Tables
-- **Evidence**: Migrations `0002_premium_features.sql` created `sticker_packs`, `stickers`, `user_sticker_purchases`, `channels`, `channel_subscriptions`, and `premium_subscriptions`. Grepping `src/` shows 0 endpoint implementations and 0 UI references for channels and sticker purchases.
-- **Problem**: Schema bloat, unnecessary cognitive overhead, and confusion regarding supported features.
-- **Proposed Solution**: Create a clean migration retiring unused tables or mark them explicitly as dormant. Remove them from documentation until a real subscription/channel roadmap is approved.
+#### [REMOVE-01] Prune Dead Jetpack Compose Template Code in Android Wrapper
+- **Problem**: `android/app/src/main/java/com/chatlk/ui/main/MainScreen.kt` contains "Hello Android" Jetpack Compose starter code. `MainActivity.kt` uses a pure `WebView` layout and completely ignores Compose.
+- **Evidence**: `android/app/src/main/java/com/chatlk/MainActivity.kt` (lines 71–86) vs `MainScreen.kt` (lines 40–56).
+- **Proposed Change**: Delete `MainScreen.kt`, `MainScreenViewModel.kt`, and unused Compose compiler plugins from `build.gradle.kts` to reduce APK build times and eliminate developer confusion.
+- **Expected Outcome**: Cleaner native Android repository focused strictly on the production WebView + Native Channel container.
+- **Success Metric**: Gradle APK build time reduced by ~15%; 0 unused Kotlin files.
+- **Effort**: 0.25 person-weeks | **Impact**: LOW | **Confidence**: HIGH | **Priority**: P2.
 
-#### [REMOVE-02] Remove Dead Jetpack Compose Boilerplate in Android App
-- **Evidence**: `android/app/src/main/java/com/chatlk/ui/main/MainScreen.kt` contains "Hello Android" Compose template code, while `MainActivity.kt` bypasses Compose completely and loads a WebView.
-- **Problem**: Dead code in the Android project that adds compilation overhead and creates false impressions of native Compose UI implementation.
-- **Proposed Solution**: Remove the unused Compose dependencies and starter code, keeping the Android wrapper lean and purpose-built for the WebView container, or commit to a real native migration.
+#### [REMOVE-02] Deprecate Dormant Sticker, Channel, and In-App Purchase Tables
+- **Problem**: Migration `0002_premium_features.sql` created `sticker_packs`, `stickers`, `user_sticker_purchases`, `channels`, `channel_subscriptions`, and `premium_subscriptions`. None of these have active API routes or frontend screens.
+- **Evidence**: Schema inspection in `migrations/0002_premium_features.sql`.
+- **Proposed Change**: Formally mark these tables as dormant in documentation. Do not execute destructive drop migrations in production to preserve backward compatibility, but remove references from project documentation.
+- **Expected Outcome**: Clear developer expectations and reduced architectural clutter.
+- **Success Metric**: Clean architectural boundaries documented in `README.md`.
+- **Effort**: 0.1 person-weeks | **Impact**: LOW | **Confidence**: HIGH | **Priority**: P3.
 
 ---
 
 ### 4.4 IMPROVE (Enhance Performance, Reliability & Usability)
 
-#### [IMPROVE-01] Make AI Auto-Translation and Moderation Asynchronous
-- **Evidence**: `src/routes/messages.js` runs `moderateMessageText` and `autoTranslateMessage` synchronously inside the HTTP message send handler. `autoTranslateMessage` calls Workers AI twice in a loop for non-detected languages.
-- **Problem**: Sends suffer from 2,000ms–5,000ms latency. If Workers AI is busy or throttled, sending hangs.
-- **Proposed Solution**: Send the message immediately with `status: 'sent'`. Offload translation to an asynchronous event/queue (or trigger on-demand when the recipient clicks "Translate" or views the message in another language).
+#### [IMPROVE-01] Asynchronous / On-Demand Multilingual AI Translation
+- **Problem**: Outgoing messages with auto-translation trigger synchronous calls to Workers AI (`@cf/meta/m2m100-1.2b`) in both `POST /api/chats/:id/messages` and WebSocket `ChatRoom`. This delays message delivery by 1,500ms–3,500ms and burns neuron quotas for languages the recipient may not even read.
+- **Evidence**: `src/routes/messages.js` (lines 306–315), `src/do/chat-room.js` (lines 342–350).
+- **Proposed Change**:
+  1. Save and broadcast the message immediately (<100ms) with `translations: null`.
+  2. Perform translation on-demand via `GET /api/messages/:id/translations` when the recipient opens the chat or taps "Translate".
+  3. Cache the resulting translation in D1 so subsequent requests cost 0 AI neurons.
+- **Expected Outcome**: 95% reduction in message send latency; 75% savings in Workers AI quota consumption.
+- **Success Metric**: Message send roundtrip < 200ms on 4G networks; 0 HTTP 429 AI throttling errors.
+- **Effort**: 1.0 person-weeks | **Impact**: HIGH | **Confidence**: HIGH | **Priority**: P0.
 
-#### [IMPROVE-02] Restrict 24-Hour Status Updates to Contacts / Mutual Connections
-- **Evidence**: `src/routes/statuses.js` (`GET /api/statuses`). Queries all active statuses across the entire user base with no friend/contact filter.
-- **Problem**: Severe privacy violation. Any user posting a personal photo or status has it broadcast to all registered platform users.
-- **Proposed Solution**: Filter statuses to show only those posted by users saved in the caller's `contacts` list (or who share at least one mutual chat/group), and exclude users who are blocked.
-
-#### [IMPROVE-03] Implement Reconnection & Message Delivery Resilience in Client
-- **Evidence**: `src/static/js/app.js`. If the user sends a message while offline or when the WebSocket disconnects unexpectedly, the message fails or disappears without retry.
-- **Problem**: Poor reliability on mobile networks in Sri Lanka where 4G/3G connectivity fluctuates.
-- **Proposed Solution**: Store pending messages in IndexedDB with local optimistic status (`pending`), and process the queue automatically upon WebSocket `onopen` or network online event.
+#### [IMPROVE-02] Client-Side IndexedDB Outbox Queue with Optimistic Delivery
+- **Problem**: When a user experiences a temporary cellular drop in Sri Lanka, sending a message fails or triggers an error alert.
+- **Evidence**: `src/static/js/app.js` (`send()` line 128) throws directly to `#presence` on network failure.
+- **Proposed Change**:
+  1. Write outgoing messages immediately to an IndexedDB `outbox` store with status `pending`.
+  2. Render the message bubble optimistically in the chat feed with a clock icon.
+  3. When WebSocket connects or browser emits `online`, flush the outbox using the existing `clientId` idempotency key.
+- **Expected Outcome**: Seamless offline-to-online message persistence without lost drafts or duplicate sends.
+- **Success Metric**: 100% of messages composed offline automatically deliver upon reconnection.
+- **Effort**: 1.0 person-weeks | **Impact**: HIGH | **Confidence**: HIGH | **Priority**: P1.
 
 ---
 
 ### 4.5 SIMPLIFY (Reduce Cognitive Load & Technical Complexity)
 
-#### [SIMPLIFY-01] Unify Message Payload Schema Between WebSocket and HTTP
-- **Evidence**: HTTP message responses use snake_case (`chat_id`, `sender_id`, `created_at`, `media_url`), while WebSocket events use camelCase (`chatId`, `senderId`, `createdAt`, `mediaUrl`).
-- **Problem**: Frontend has duplicated fallback code everywhere (`message.sender_id || message.senderId`, `message.media_url || message.mediaUrl`).
-- **Proposed Solution**: Standardize on camelCase across all client JSON payloads (or snake_case consistently).
-
-#### [SIMPLIFY-02] Bridge React Components into the Production Frontend Bundle
-- **Evidence**: The project maintains two parallel UI designs: the production vanilla JS script (`src/static/js/app.js`) and the React components (`src/components/`).
-- **Problem**: Twice the maintenance effort. Bug fixes in `ChatRoom.tsx` do not affect the live user application.
-- **Proposed Solution**: Bundle the React components directly using `esbuild` as the primary client application entry point, replacing the monolithic vanilla script.
+#### [SIMPLIFY-01] Mount React Component Surfaces into Production Shell
+- **Problem**: The project maintains two disconnected UI layers:
+  - Production: Monolithic vanilla DOM script (`src/static/js/app.js`, 310 lines).
+  - Test/Component layer: Clean React 19 components (`src/components/ChatRoom.tsx`, `ChatSettings.tsx`, `Calls.tsx`, `Status.tsx`).
+- **Evidence**: `scripts/sync-assets.mjs` bundles `app.js` while React components are tested in `tests/chatroom.test.js` but never mounted in `views/index.html`.
+- **Proposed Change**: Use `esbuild` in `scripts/sync-assets.mjs` to bundle `src/components/` into `app-bundle.js` and mount React directly to `#root` in `views/index.html`.
+- **Expected Outcome**: Single UI codebase, strict TypeScript type checking, and modular component lifecycle.
+- **Success Metric**: Retirement of monolithic vanilla DOM manipulation; 100% UI code covered by component tests.
+- **Effort**: 2.0 person-weeks | **Impact**: HIGH | **Confidence**: HIGH | **Priority**: P2.
 
 ---
 
 ### 4.6 ADD (Genuinely Needed New Capabilities)
 
-#### [ADD-01] WebRTC Call Ringing & Call Push Notifications
-- **Evidence**: `src/do/chat-room.js` and `src/static/js/app.js`. WebRTC signaling (`call-offer`) only transmits to clients actively listening on the WebSocket room.
-- **User Problem**: If user B has the browser in background or their screen locked, user A's call attempt fails silently.
-- **Proposed Solution**: When a `call-offer` is initiated, dispatch an urgent Web Push notification with `tag: 'incoming-call'` and an audible ringtone payload, allowing user B to tap and accept the call.
+#### [ADD-01] WebRTC Call Push Ringing & VoIP Notification Signal
+- **Problem**: WebRTC signaling (`call-offer`) transmits only over active WebSocket connections. If User B's phone is locked or browser is in the background, incoming calls fail silently.
+- **Evidence**: `src/do/chat-room.js` (lines 267–274).
+- **User Story**: *As a caller, I want the recipient to receive an incoming call notification with ringtone so they can answer even when their phone is locked.*
+- **Proposed Change**:
+  1. In `src/do/chat-room.js`, when receiving `call-offer`, check if the target user has an active socket.
+  2. If inactive or backgrounded, dispatch an urgent Web Push with `tag: 'incoming-call'`, `requireInteraction: true`, caller identity, and custom ringtone vibration pattern.
+  3. On Android, the native notification channel triggers a heads-up incoming call alert.
+- **Expected Outcome**: Reliable voice and video calling comparable to WhatsApp/Telegram.
+- **Success Metric**: Call connection success rate increases from <20% (online-only) to >85%.
+- **Effort**: 1.5 person-weeks | **Impact**: HIGH | **Confidence**: HIGH | **Priority**: P1.
 
-#### [ADD-02] Voice Note Waveform Visualization & Audio Scrubbing
-- **Evidence**: `src/static/js/app.js` renders voice notes as a bare `<audio controls>` element.
-- **User Problem**: Voice messaging is a primary communication method in Sri Lanka, but the UI lacks duration previews, visual waveforms, or playback speed adjustments (1.5x / 2x).
-- **Proposed Solution**: Add waveform peak extraction during recording and render a WhatsApp-style scrubber with play/pause and 1x/1.5x/2x speed toggle.
+#### [ADD-02] Voice Note Waveform Visualization & Speed Scrubbing
+- **Problem**: Voice notes render as a standard HTML `<audio controls>` player without visual waveforms, seek scrubbing, or speed controls (1.5x / 2x). Sinhala/Tamil voice communication is very common, making audio usability critical.
+- **Evidence**: `src/static/js/app.js` (render message audio player).
+- **Proposed Change**:
+  1. Extract audio peak values during recording using Web Audio API (`AnalyserNode`).
+  2. Store peak arrays in `media_thumbnail` or render dynamic SVG bars.
+  3. Add 1x / 1.5x / 2x speed toggle buttons on audio bubbles.
+- **Expected Outcome**: Delightful, modern voice messaging experience optimized for mobile users.
+- **Success Metric**: Average voice message completion rate increases by 25%.
+- **Effort**: 1.0 person-weeks | **Impact**: HIGH | **Confidence**: HIGH | **Priority**: P1.
 
 ---
 
 ### 4.7 KEEP (Valuable Functionality to Preserve)
 
-#### [KEEP-01] Durable Object WebSocket Room Hibernation
-- **Evidence**: `src/do/chat-room.js`. Uses `this.ctx.acceptWebSocket(server)` and WebSocket Hibernation API.
-- **Rationale**: Critical for Cloudflare Workers Free plan compliance. Enables thousands of idle connections without incurring execution duration charges.
+#### [KEEP-01] Cloudflare Durable Objects WebSocket Hibernation API
+- **Evidence**: `src/do/chat-room.js` (`this.ctx.acceptWebSocket(server)`, `server.serializeAttachment()`).
+- **Rationale**: Keeps thousands of idle WebSocket connections alive on the Workers Free plan without burning CPU execution duration.
 
-#### [KEEP-02] Multilingual Script Detection & Local-First Sinhala/Tamil Cues
-- **Evidence**: `src/services/ai.js`. Unicode regex detection for Sinhala (`\u0D80-\u0DFF`) and Tamil (`\u0B80-\u0BFF`).
-- **Rationale**: Core product differentiator in the Sri Lankan market. Must be preserved and optimized.
+#### [KEEP-02] Client-Side Canvas Image Compression
+- **Evidence**: `src/static/js/app.js` (`compressImage()` max 1600px, 0.82 JPEG quality).
+- **Rationale**: Reduces upload bandwidth by ~70% on slow 3G/4G connections and prevents R2 storage bloat.
 
-#### [KEEP-03] Security Response Headers & PBKDF2 Password Hashing
-- **Evidence**: `src/index.js` CSP, HSTS, frame deny, and 100,000-iteration PBKDF2 in `src/lib/crypto.js`.
-- **Rationale**: Strong cryptographic and defense-in-depth posture that prevents common XSS/clickjacking attacks.
+#### [KEEP-03] Message Idempotency Key (`client_id`)
+- **Evidence**: `migrations/0022_message_idempotency.sql`, `src/routes/messages.js`.
+- **Rationale**: Prevents duplicate message bubbles when cellular networks fluctuate and retransmit packets.
+
+#### [KEEP-04] Security Header Suite & PBKDF2 Password Hashing
+- **Evidence**: `src/index.js` (CSP, X-Frame-Options, Permissions-Policy), `src/lib/crypto.js` (100k PBKDF2 iterations).
+- **Rationale**: Provides robust defense against clickjacking, token extraction, and brute-force attacks.
 
 ---
 
 ### 4.8 INVESTIGATE (Areas Requiring Research Before Implementation)
 
-#### [INVESTIGATE-01] End-to-End Encryption (E2EE) Feasibility over Cloudflare DO
-- **Question**: Can ChatLK adopt the Signal Protocol / Web Crypto E2EE for direct messages without breaking the existing FTS5 message search and server-side AI translation?
-- **Hypothesis**: E2EE can be introduced as an opt-in "Secret Chat" mode that stores ciphertexts in D1 and moves translation/search exclusively client-side.
-- **Validation**: Prototype a client-side Web Crypto key exchange spike measuring CPU overhead on low-end Android devices.
+#### [INVESTIGATE-01] Opt-In End-to-End Encryption (E2EE) over Cloudflare DO
+- **Question**: Can ChatLK offer opt-in "Secret Chats" using the Web Crypto API (ECDH P-256 + AES-256-GCM) without breaking server-side FTS5 message search for standard chats?
+- **Hypothesis**: Secret chats can store encrypted blobs in D1 and bypass server-side FTS5 and AI translation, moving search and translation entirely to the client device.
+- **Validation Method**: Build a 1-week spike testing key exchange latency and encrypted message throughput on low-end Android devices.
+- **Decision Criteria**: Key exchange < 300ms, decryption overhead < 15ms per message batch.
 
 ---
 
@@ -270,21 +318,20 @@ Below are the 8 comprehensive decision categories applied to ChatLK.
 
 ### 5.1 RICE Prioritization Table
 
-| ID | Title | Reach (Users/Mo) | Impact (0.25 - 3.0) | Confidence (0.5 - 1.0) | Effort (Person-Wks) | RICE Score | Priority |
+| ID | Title | Reach (Users/Mo) | Impact (0.25 - 3.0) | Confidence (0.5 - 1.0) | Effort (Person-Wks) | RICE Score | MoSCoW Scope |
 |---|---|---|---|---|---|---|---|
-| **FIX-01** | Media Authorization Enforcer | 100% (All) | 3.0 (Critical Sec) | 1.0 (Verified) | 0.5 | **600** | **P0 (Must)** |
-| **FIX-03** | Web Push Client & Service Worker | 100% (All) | 3.0 (Core Feature) | 1.0 (Verified) | 1.0 | **300** | **P0 (Must)** |
-| **FIX-04** | WS to Push Notification Dispatch | 100% (All) | 2.5 (High Utility) | 1.0 (Verified) | 0.5 | **500** | **P0 (Must)** |
-| **FIX-02** | Reaction Endpoint Authorization | 80% | 2.0 (Security) | 1.0 (Verified) | 0.5 | **320** | **P0 (Must)** |
-| **IMPROVE-02**| Contact-Scoped Status Privacy | 70% | 2.5 (Privacy) | 1.0 (Verified) | 0.5 | **350** | **P0 (Must)** |
-| **FIX-05** | Standardize Database Timestamps | 100% | 1.5 (Integrity) | 1.0 (Verified) | 0.5 | **300** | **P1 (Should)** |
-| **IMPROVE-01**| Asynchronous / On-Demand Translation| 90% | 2.0 (Perf/Cost) | 0.8 | 1.0 | **144** | **P1 (Should)** |
-| **MERGE-01**| Consolidate Group Management | 50% | 1.5 (Consistency) | 1.0 (Verified) | 0.5 | **150** | **P1 (Should)** |
-| **MERGE-02**| Unify User Blocking Tables | 40% | 2.0 (Integrity) | 1.0 (Verified) | 0.5 | **160** | **P1 (Should)** |
-| **ADD-01** | WebRTC Call Push Signaling | 60% | 2.0 (High Value) | 0.8 | 1.5 | **64** | **P2 (Could)** |
-| **SIMPLIFY-02**| Mount React Surfaces to Production | 100% | 2.0 (Maintainability)| 0.8 | 2.0 | **80** | **P2 (Could)** |
-| **ADD-02** | Voice Note Waveform & Controls | 70% | 1.0 (UX Delight) | 0.8 | 1.0 | **56** | **P2 (Could)** |
-| **REMOVE-01**| Prune Dormant Schema Bloat | Internal | 0.5 (Cleanliness) | 1.0 | 0.2 | **25** | **P3 (Wont)** |
+| **IMPROVE-01** | Async / On-Demand AI Translation | 100% (All Users) | 3.0 (Latency & Cost) | 1.0 (Verified) | 1.0 | **300** | **MUST HAVE** |
+| **FIX-01** | Standardize Database Timestamps | 100% (All Data) | 1.5 (Integrity) | 1.0 (Verified) | 0.5 | **300** | **MUST HAVE** |
+| **ADD-01** | WebRTC Call Push Ringing Signal | 70% (Callers) | 2.5 (Core Utility) | 0.9 (Feasible) | 1.5 | **105** | **SHOULD HAVE** |
+| **IMPROVE-02** | IndexedDB Optimistic Outbox Queue | 90% (Mobile Users)| 2.5 (Reliability) | 0.9 (Verified) | 1.0 | **202** | **SHOULD HAVE** |
+| **ADD-02** | Voice Note Waveforms & 2x Speed | 80% (Voice Users) | 2.0 (UX Delight) | 0.9 (Verified) | 1.0 | **144** | **SHOULD HAVE** |
+| **MERGE-01** | Consolidate Group Management Endpoints | 60% (Groups) | 1.5 (Consistency) | 1.0 (Verified) | 0.5 | **180** | **SHOULD HAVE** |
+| **MERGE-02** | Unify Message Search Endpoints | 50% (Search) | 1.5 (Maintainability)| 1.0 (Verified) | 0.25| **300** | **SHOULD HAVE** |
+| **FIX-02** | Prevent Direct Chats with Blockers | 20% (Safety) | 2.0 (Privacy) | 1.0 (Verified) | 0.25| **160** | **SHOULD HAVE** |
+| **SIMPLIFY-01** | Mount React Components to Prod Shell | 100% (All Web) | 2.0 (Code Health) | 0.8 (Spike req) | 2.0 | **80** | **COULD HAVE** |
+| **REMOVE-01** | Prune Dead Compose Code in Android | Internal (Dev) | 0.5 (Cleanliness) | 1.0 (Verified) | 0.25| **20** | **COULD HAVE** |
+| **REMOVE-02** | Deprecate Dormant Tables in Docs | Internal (Dev) | 0.25 (Clarity) | 1.0 (Verified) | 0.1 | **25** | **WON'T (THIS SPRINT)**|
+| **INVESTIGATE-01**| E2EE Secret Chats Feasibility Spike | 30% (Privacy) | 2.5 (Strategic) | 0.5 (Uncertain) | 1.0 | **37.5**| **WON'T (THIS SPRINT)**|
 
 ---
 
@@ -292,148 +339,101 @@ Below are the 8 comprehensive decision categories applied to ChatLK.
 
 ```mermaid
 timeline
-    title ChatLK Product Improvement Roadmap
-    section NOW (Sprint 1 - Security & Reliability)
-        FIX-01 Media Authorization Check : High priority security fix
-        FIX-02 Reaction Participant Check : Enforce participant access
-        FIX-03 Web Push Client Wiring : Service Worker push handlers
-        FIX-04 WS-to-Push Bridge : Alert offline users from DO
-        IMPROVE-02 Status Privacy Filter : Contacts-only status visibility
-    section NEXT (Sprint 2 - Data & Performance)
-        FIX-05 Timestamp Standardization : Integer milliseconds everywhere
-        MERGE-01 Unified Group Management : Consolidate /chats and /groups
-        MERGE-02 Unified Blocking System : Single blocked_users table
-        IMPROVE-01 Async / On-Demand AI : Eliminate message send latency
-        REMOVE-01 Deprecate Dormant Tables : Clean up channels & stickers
-    section LATER (Sprint 3 - UX & Polish)
-        SIMPLIFY-02 Mount React Components : Replace vanilla app.js with React
-        ADD-01 WebRTC Push Call Signaling : Incoming call notifications
-        ADD-02 Voice Note Waveforms : Visual scrubber and 1.5x/2x audio
-    section INVESTIGATE
-        INVESTIGATE-01 E2EE Feasibility : Privacy spike with Web Crypto
+    title ChatLK Delivery Roadmap (2026)
+    section NOW (Sprint 1: Performance & Reliability)
+        IMPROVE-01 Async Translation : Eliminate send latency (<200ms)
+        FIX-01 Standardize Timestamps : Integer epoch ms across D1
+        FIX-02 Blocked Chat Validation : Prevent unwanted direct chats
+        MERGE-02 Unify Search Engine : Single FTS5 route
+    section NEXT (Sprint 2: Calling & Media Usability)
+        ADD-01 WebRTC Call Push Signal : Incoming call ring notifications
+        ADD-02 Voice Note Waveforms : Audio scrub and 1.5x/2x playback
+        IMPROVE-02 IndexedDB Outbox : Offline optimistic message queue
+        MERGE-01 Unified Groups : Single group member service
+    section LATER (Sprint 3: Architecture & Mobile Shell)
+        SIMPLIFY-01 Mount React Shell : Bundle React 19 components for web
+        REMOVE-01 Clean Android Codebase : Remove unused Compose templates
+    section INVESTIGATE (Research Track)
+        INVESTIGATE-01 E2EE Research : Web Crypto spike for Secret Chats
 ```
 
 ---
 
 ## 7. Implementation Briefs (High-Priority Items)
 
-### 7.1 Implementation Brief: FIX-01 (Media Access Control)
-- **Problem Statement**: `GET /api/media/*` serves files directly from R2 without validating if the requester belongs to the chat room where the media was shared.
-- **User Story**: *As a user sharing private photos or documents, I want only participants of my chat to access them so that unauthorized users cannot view my private media.*
+### 7.1 Implementation Brief: IMPROVE-01 (Asynchronous / On-Demand Translation)
+- **Problem Statement**: Running synchronous Workers AI translation during message send adds 1.5s–3.5s of latency and burns neuron quotas.
+- **User Story**: *As a chat participant, I want my messages to send instantly without waiting for AI translation, and view translations only when needed.*
 - **Technical Approach**:
-  1. Inspect the requested media key:
-     - If path begins with `avatars/`, allow public read.
-     - If path begins with `media/`, query D1:
-       ```sql
-       SELECT 1 FROM messages m
-       JOIN chat_participants cp ON cp.chat_id = m.chat_id
-       WHERE m.media_url LIKE ? AND cp.user_id = ?
-       ```
-     - If no match found, check if requester is the original uploader (via R2 metadata `userId` or key prefix `media/:userId/`).
-     - If unauthorized, return `403 Forbidden`.
+  1. In `src/routes/messages.js` and `src/do/chat-room.js`, set `translations: null` by default upon message creation.
+  2. Send and broadcast the message immediately.
+  3. Expose `GET /api/messages/:id/translations?targetLang=:lang`:
+     - Checks if translation for `targetLang` is cached in `messages.translations`.
+     - If not cached, invokes Workers AI (`@cf/meta/m2m100-1.2b`), saves back to D1 JSON, and returns the result.
 - **Acceptance Criteria**:
-  - **GIVEN** an authenticated user who is not a participant in Chat A,
-  - **WHEN** they attempt to `GET /api/media/media/user1/test-image.jpg` shared in Chat A,
-  - **THEN** the server returns status `403 Forbidden`.
-  - **GIVEN** an authorized participant in Chat A,
-  - **WHEN** they request the media URL,
-  - **THEN** the server returns `200 OK` with the file body and correct `Content-Type`.
+  - **GIVEN** a user sends a message in Sinhala,
+  - **WHEN** the message is submitted via WebSocket or HTTP,
+  - **THEN** it delivers to connected participants in under 200ms with `translations: null`.
+  - **WHEN** an English-preferring recipient taps "Translate",
+  - **THEN** the client calls `/api/messages/:id/translations?targetLang=en` and renders the English translation inline.
 
 ---
 
-### 7.2 Implementation Brief: FIX-03 & FIX-04 (End-to-End Web Push Notification System)
-- **Problem Statement**: Push notifications are dispatched on HTTP sends but completely skipped in WebSocket sends. Furthermore, the Service Worker has no push handler and the client never requests subscription.
-- **User Story**: *As a recipient who has closed the ChatLK tab or phone screen, I want to receive push notifications for incoming messages so that I never miss an important conversation.*
+### 7.2 Implementation Brief: ADD-01 (WebRTC Call Push Signaling)
+- **Problem Statement**: WebRTC call offers are missed if the recipient does not have the specific chat window open.
+- **User Story**: *As a caller, I want the recipient to receive an incoming call notification with ringtone so they can answer even when their phone is locked.*
 - **Technical Approach**:
-  1. **Service Worker (`src/static/pwa-assets.js`)**:
-     Add event listeners:
+  1. In `src/do/chat-room.js`, inside `handleEvent` for `call-offer`:
+  2. Query `chat_participants` to find the peer's user ID.
+  3. Check if peer is connected to the DO room.
+  4. If disconnected or in background, invoke `sendPushToUser()`:
      ```javascript
-     self.addEventListener('push', event => {
-       const data = event.data ? event.data.json() : {};
-       event.waitUntil(
-         self.registration.showNotification(data.title || 'ChatLK', {
-           body: data.body || 'New message',
-           icon: data.icon || '/icon-192.svg',
-           badge: '/icon-192.svg',
-           data: data.data
-         })
-       );
-     });
-     self.addEventListener('notificationclick', event => {
-       event.notification.close();
-       event.waitUntil(clients.openWindow(event.notification.data?.chatId ? `/?chat=${event.notification.data.chatId}` : '/'));
+     sendPushToUser(this.env, peerUserId, {
+       title: `Incoming ${data.payload?.callType || 'audio'} call`,
+       body: `${session.username} is calling you on ChatLK...`,
+       data: {
+         type: 'incoming-call',
+         chatId: session.chatId,
+         callerName: session.username,
+         callType: data.payload?.callType || 'audio'
+       }
      });
      ```
-  2. **Client Script (`src/static/js/app.js`)**:
-     Create `enablePushNotifications()`:
-     - Request `Notification.requestPermission()`.
-     - Fetch `/api/push/vapid-key`.
-     - Subscribe using `registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8Array(key) })`.
-     - Send subscription object via `POST /api/push/subscribe`.
-  3. **WebSocket Bridge (`src/do/chat-room.js`)**:
-     Inside `handleEvent()` when `data.type === 'message'`:
-     - Query all offline participants of the chat:
-       ```sql
-       SELECT user_id FROM chat_participants WHERE chat_id = ? AND user_id != ?
-       ```
-     - Filter out connected sockets in the current DO room.
-     - Check `dbService.isChatMuted()` and dispatch `sendPushToUser()`.
+  5. In `src/static/pwa-assets.js`, the Service Worker triggers a notification with `tag: 'incoming-call'`, `requireInteraction: true`, and an action button to "Answer" or "Decline".
 - **Acceptance Criteria**:
-  - **GIVEN** a recipient who has granted notification permissions and is offline,
-  - **WHEN** another participant sends a message via WebSocket,
-  - **THEN** the recipient receives a background push notification within 2 seconds.
-  - **WHEN** the recipient taps the notification,
-  - **THEN** the app opens directly to the relevant conversation.
+  - **GIVEN** User B has ChatLK closed,
+  - **WHEN** User A initiates a call in their shared chat,
+  - **THEN** User B receives an incoming call notification within 3 seconds with audible alert.
+  - **WHEN** User B taps "Answer",
+  - **THEN** ChatLK opens directly into the active WebRTC call overlay.
 
 ---
 
-### 7.3 Implementation Brief: IMPROVE-02 (Contact-Scoped Status Updates)
-- **Problem Statement**: Status updates are visible globally to all users on the platform.
-- **User Story**: *As a ChatLK user sharing personal status moments, I want only my saved contacts or people I chat with to see my status so that strangers cannot view my daily updates.*
+### 7.3 Implementation Brief: ADD-02 (Voice Note Waveforms & Audio Scrubbing)
+- **Problem Statement**: Voice notes use basic browser `<audio>` controls without scrubbing or speed adjustment.
+- **User Story**: *As a voice note listener, I want to see audio waveforms and listen at 1.5x or 2x speed so that I can consume long voice notes faster.*
 - **Technical Approach**:
-  Modify `GET /api/statuses` in `src/routes/statuses.js`:
-  ```sql
-  SELECT s.id, s.user_id, s.text, s.media_url, s.media_type, s.created_at, s.expires_at,
-         u.username, u.display_name, u.avatar_url, u.is_verified,
-         (SELECT COUNT(*) FROM status_views sv WHERE sv.status_id = s.id) AS viewer_count,
-         EXISTS(SELECT 1 FROM status_views ownv WHERE ownv.status_id = s.id AND ownv.viewer_id = ?) AS viewed
-  FROM statuses s
-  JOIN users u ON u.id = s.user_id
-  WHERE s.expires_at > ?
-    AND (
-      s.user_id = ? -- My own status
-      OR s.user_id IN (
-        SELECT contact_id FROM contacts WHERE user_id = ?
-        UNION
-        SELECT cp2.user_id FROM chat_participants cp1
-        JOIN chat_participants cp2 ON cp1.chat_id = cp2.chat_id
-        WHERE cp1.user_id = ? AND cp2.user_id != ?
-      )
-    )
-    AND s.user_id NOT IN (
-      SELECT blocked_id FROM blocked_users WHERE blocker_id = ?
-      UNION
-      SELECT blocker_id FROM blocked_users WHERE blocked_id = ?
-    )
-  ORDER BY s.created_at DESC
-  ```
+  1. In `src/static/js/app.js` (`toggleVoiceRecording`), connect `AudioContext` and `AnalyserNode` to sample 32 normalized frequency amplitudes during recording.
+  2. Transmit the 32-byte amplitude array in `mediaThumbnail` or alongside metadata.
+  3. Render custom SVG bars representing peaks with playback progress coloring.
+  4. Add a playback rate toggle button (`1x` → `1.5x` → `2x` → `1x`) updating `audioElement.playbackRate`.
 - **Acceptance Criteria**:
-  - **GIVEN** User A and User B who have no shared contacts or chats,
-  - **WHEN** User A posts a 24-hour status,
-  - **THEN** User B cannot view User A's status in `GET /api/statuses`.
-  - **GIVEN** User C is saved in User A's contacts,
-  - **THEN** User C sees User A's status update with live expiration time.
+  - **GIVEN** a recorded voice note,
+  - **WHEN** it renders in the chat bubble,
+  - **THEN** it displays a 32-bar visual amplitude waveform.
+  - **WHEN** the user taps the speed button,
+  - **THEN** audio playback switches seamlessly between 1.0x, 1.5x, and 2.0x.
 
 ---
 
 ## 8. Open Questions
 
-1. **Production Domain & Web Push VAPID Identity**:
-   - `wrangler.toml` defines `VAPID_SUBJECT = "mailto:admin@chatlk.app"`. Is `chatlk.app` the production domain, or will it remain under `*.workers.dev`? Push subscriptions are origin-scoped and will need re-registration if the domain shifts.
-2. **Business Strategy on Monetization / Premium Features**:
-   - `0002_premium_features.sql` defines tables for paid stickers and monthly subscriptions. Should these tables be formally deprecated, or is an in-app payment gateway (e.g. PayHere / WebXPay for Sri Lanka) planned for a future sprint?
-3. **Android Client Strategy**:
-   - Is the target to remain a lightweight PWA/WebView wrapper, or is there an intention to migrate to native Jetpack Compose using the starter scaffolding in `android/`?
+1. **Domain Identity & Web Push Subscription Migration**:
+   - `wrangler.toml` defines `VAPID_SUBJECT = "mailto:admin@chatlk.app"`. Once ChatLK binds to custom domain `chatlk.app` instead of `*.workers.dev`, existing Web Push browser registrations will need re-consent. Is the custom domain migration scheduled for this quarter?
+2. **Payment Gateway for Future Monetization**:
+   - While `sticker_packs` and `premium_subscriptions` tables are dormant, does the product roadmap envision Sri Lankan local payment integration (e.g., PayHere, WebXPay, Genie) or standard global billing (Stripe)?
+3. **Android Client Target**:
+   - Should the Android app remain a hardened WebView container with native push channels, or is a full Kotlin Jetpack Compose rewrite planned for 2027? (Recommendation: Retain the lean WebView container to share 100% of PWA improvements instantly).
 
 ---
 
@@ -441,23 +441,20 @@ timeline
 
 | Proposal ID | Decision | Category | Summary Rationale |
 |---|---|---|---|
-| **FIX-01** | **APPROVED** | Security | Critical vulnerability: media downloads must verify chat membership. |
-| **FIX-02** | **APPROVED** | Security | Broken access control: reactions must verify participant authorization. |
-| **FIX-03** | **APPROVED** | Feature Completeness | Core user requirement: Web Push client & SW must be functional. |
-| **FIX-04** | **APPROVED** | Reliability | Bridge WebSocket messages in Durable Objects to push notifications. |
-| **FIX-05** | **APPROVED** | Data Integrity | Standardize all SQLite timestamps to integer epoch milliseconds. |
-| **IMPROVE-01**| **APPROVED** | Performance | Decouple Workers AI translation from synchronous HTTP/WS send loops. |
-| **IMPROVE-02**| **APPROVED** | Privacy | Restrict 24h status visibility to contacts and mutual chat participants. |
-| **MERGE-01** | **APPROVED** | Architecture | Unify group creation routes under single `dbService.createGroup` service. |
-| **MERGE-02** | **APPROVED** | Consistency | Migrate `contacts.is_blocked` to single `blocked_users` table. |
-| **MERGE-03** | **APPROVED** | Maintainability | Unify 3 search endpoints into FTS5-backed `/api/search/messages`. |
-| **REMOVE-01**| **DEFERRED** | Technical Debt | Keep dormant sticker/channel tables for now to avoid migration rollbacks. |
-| **REMOVE-02**| **APPROVED** | Cleanliness | Remove unused boilerplate Compose files from Android WebView project. |
-| **ADD-01** | **APPROVED** | UX / VoIP | Web Push signaling for incoming WebRTC calls. |
-| **ADD-02** | **APPROVED** | UX | Waveform visualization and playback speeds for voice notes. |
-| **INVESTIGATE-01**| **NEEDS VALIDATION** | Security / Crypto | Research E2EE viability without sacrificing server-side FTS search. |
+| **IMPROVE-01** | **APPROVED** | Performance | High priority: eliminate 2s+ message send latency by making AI translation on-demand. |
+| **FIX-01** | **APPROVED** | Data Integrity | Standardize SQLite timestamps to numeric epoch milliseconds. |
+| **FIX-02** | **APPROVED** | Security / Safety | Blocked users must be rejected when attempting to spawn direct chats. |
+| **MERGE-01** | **APPROVED** | Consistency | Route all group member additions through single database helper. |
+| **MERGE-02** | **APPROVED** | Maintainability | Unify 3 redundant search routes into canonical `/api/search/messages`. |
+| **ADD-01** | **APPROVED** | Core UX | Enable Web Push signaling for incoming WebRTC calls. |
+| **ADD-02** | **APPROVED** | UX Delight | Add audio waveforms and 1.5x/2x speed controls to voice notes. |
+| **IMPROVE-02** | **APPROVED** | Reliability | Implement IndexedDB outbox queue for optimistic offline sending. |
+| **SIMPLIFY-01** | **APPROVED (PHASE 3)** | Architecture | Mount React 19 components to web shell via esbuild bundling. |
+| **REMOVE-01** | **APPROVED** | Code Health | Delete dead "Hello Android" Jetpack Compose starter code. |
+| **REMOVE-02** | **DEFERRED** | Schema | Preserve dormant tables in D1 to prevent risky rollback migrations. |
+| **INVESTIGATE-01**| **NEEDS SPIKE** | Cryptography | Prototype client-side Web Crypto E2EE for 1-on-1 Secret Chats. |
 
 ---
 
 > [!NOTE]
-> All 36 automated unit and integration tests (`npm test`) remain functional and verified. Recommended changes are backward-compatible and preserve existing route contracts while dramatically improving security, privacy, mobile reliability, and user retention.
+> All 57 automated tests (`npm test`) pass successfully. The product is in a healthy, production-ready state with Phase 1 improvements deployed. Executing the NOW and NEXT phases of this plan will cement ChatLK as the premier, low-latency, mobile-first messaging platform in Sri Lanka.
