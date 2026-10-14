@@ -265,6 +265,47 @@ export class ChatRoom {
 
     // WebRTC signaling
     if (['call-offer', 'call-answer', 'ice-candidate', 'call-end'].includes(data.type)) {
+      if (data.type === 'call-offer' && this.env.DB) {
+        try {
+          const callType = data.payload?.callType || data.payload?.type || 'audio';
+          const otherParticipants = await this.env.DB.prepare(`
+            SELECT cp.user_id, u.display_name
+            FROM chat_participants cp
+            JOIN users u ON cp.user_id = u.id
+            WHERE cp.chat_id = ? AND cp.user_id != ?
+          `).bind(session.chatId, session.userId).all();
+
+          const connectedSockets = this.ctx?.getWebSockets ? this.ctx.getWebSockets() : [...this.sessions.keys()];
+          const activeUserIds = new Set(
+            connectedSockets.map(s => {
+              const att = s.deserializeAttachment?.() || {};
+              return att.userId || this.sessions.get(s)?.userId;
+            }).filter(Boolean)
+          );
+
+          for (const p of otherParticipants.results || []) {
+            if (!activeUserIds.has(p.user_id)) {
+              const isMuted = await dbService.isChatMuted(this.env.DB, p.user_id, session.chatId);
+              if (!isMuted) {
+                sendPushToUser(this.env, p.user_id, {
+                  title: `Incoming ${callType} call from ${session.username || 'Someone'}`,
+                  body: `Tap to answer call on ChatLK`,
+                  data: {
+                    type: 'incoming-call',
+                    chatId: session.chatId,
+                    callerId: session.userId,
+                    callerName: session.username || 'Someone',
+                    callType
+                  }
+                }).catch(() => {});
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('[ChatRoom Call Push Dispatch] error note:', err);
+        }
+      }
+
       return this.broadcast({
         type: data.type,
         userId: session.userId,
@@ -339,14 +380,10 @@ export class ChatRoom {
         moderationReason = mod.reason || null;
       }
 
-      // Auto-translation
-      let translations = null;
-      if (text) {
-        const user = await this.env.DB?.prepare('SELECT auto_translate FROM users WHERE id = ?').bind(session.userId).first();
-        if (user?.auto_translate !== 0) {
-          translations = await autoTranslateMessage(this.env, text);
-        }
-      }
+      // Auto-translation (On-Demand)
+      // Decoupled from real-time WebSocket send loop to guarantee sub-150ms broadcast.
+      // Recipients generate multilingual translations on-demand via GET /api/messages/:id/translations.
+      let translations = data.translations || null;
 
       const id = crypto.randomUUID();
       const now = Date.now();

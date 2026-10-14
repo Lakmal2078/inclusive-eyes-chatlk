@@ -303,16 +303,10 @@ messageRoutes.post('/chats/:id/messages', messageRateLimiter, async c => {
     moderationReason = modResult.reason || null;
   }
 
-  // Feature 1: AI Auto-Translation
-  let translationsJson = null;
-  if (text) {
-    const senderUser = await c.env.DB.prepare('SELECT auto_translate FROM users WHERE id = ?').bind(userId).first();
-    const shouldTranslate = senderUser?.auto_translate !== 0; // defaults to 1
-    if (shouldTranslate) {
-      const translations = await autoTranslateMessage(c.env, text);
-      translationsJson = JSON.stringify(translations);
-    }
-  }
+  // Feature 1: AI Auto-Translation (On-Demand)
+  // Translations are decoupled from message send to ensure sub-200ms delivery.
+  // Full multilingual translations are generated on-demand via GET /api/messages/:id/translations.
+  let translationsJson = body?.translations ? JSON.stringify(body.translations) : null;
 
   const id = generateId();
   const now = Date.now();

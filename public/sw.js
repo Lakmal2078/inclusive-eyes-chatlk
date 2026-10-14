@@ -57,19 +57,31 @@ self.addEventListener('fetch', event => {
 
 self.addEventListener('push', event => {
   const data = event.data ? event.data.json() : {};
+  const isCall = data.data?.type === 'incoming-call';
   event.waitUntil(
-    self.registration.showNotification(data.title || 'ChatLK', {
-      body: data.body || 'New message',
+    self.registration.showNotification(data.title || (isCall ? 'Incoming Call' : 'ChatLK'), {
+      body: data.body || (isCall ? 'Incoming call on ChatLK...' : 'New message'),
       icon: data.icon || '/icon-192.png',
       badge: '/favicon-32x32.png',
-      data: data.data || {}
+      tag: isCall ? 'incoming-call' : (data.data?.chatId ? `chat-${data.data.chatId}` : 'chatlk-msg'),
+      renotify: isCall ? true : false,
+      requireInteraction: isCall ? true : false,
+      vibrate: isCall ? [500, 250, 500, 250, 500, 250, 500] : [200, 100, 200],
+      data: data.data || {},
+      actions: isCall ? [
+        { action: 'answer', title: 'Answer' },
+        { action: 'decline', title: 'Decline' }
+      ] : []
     })
   );
 });
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const url = event.notification.data?.chatId ? '/?chat=' + event.notification.data.chatId : '/';
+  if (event.action === 'decline') return;
+  const isCall = event.notification.data?.type === 'incoming-call';
+  const chatId = event.notification.data?.chatId;
+  const url = chatId ? (isCall ? `/?chat=${chatId}&call=auto` : `/?chat=${chatId}`) : '/';
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
       for (const client of windowClients) {
