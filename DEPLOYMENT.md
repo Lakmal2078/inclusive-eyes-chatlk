@@ -94,7 +94,7 @@ npx wrangler secret put VAPID_PRIVATE_KEY
 Apply database schemas idempotently across the production D1 database:
 
 ```bash
-# Apply all 16 migrations to Cloudflare D1
+# Apply all 22 migrations to Cloudflare D1
 npx wrangler d1 migrations apply chat-db --remote
 
 # Verify tables exist
