@@ -51,8 +51,332 @@ function renderStatusMedia(status,box){if(!status.media_url)return;loadMedia(sta
 async function createStatus(event,modalNode){event.preventDefault();const form=event.target;const text=form.elements.text.value.trim();const file=form.elements.file.files[0];const error=modalNode.querySelector('#status-error');try{let mediaUrl=null,mediaType=null;if(file){const upload=new FormData();upload.append('file',file);const result=await api('/media/upload',{method:'POST',body:upload});mediaUrl=result.url;mediaType=file.type}await api('/statuses',{method:'POST',body:JSON.stringify({text,mediaUrl,mediaType})});modalNode.remove();showStatuses()}catch(err){error.textContent=err.message}}
 async function showStatuses(){try{const data=await api('/statuses');const statuses=data.statuses||[];const cards=statuses.map(status=>{const own=status.user_id===state.user?.id;const time=new Date(status.created_at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});return `<article class="status-card ${status.viewed?'viewed':''}" data-status-id="${status.id}"><div class="status-head"><div class="avatar status-avatar">${esc((status.display_name||status.username||'U')[0])}</div><div><strong>${esc(own?'My status':status.display_name||status.username)}</strong><span>${esc(time)} · ${Math.max(0,Math.round((status.expires_at-Date.now())/3600000))}h left</span></div>${own?'<button type="button" class="danger-btn status-delete">Delete</button>':''}</div><div class="status-content">${status.text?`<p>${esc(status.text)}</p>`:''}</div>${own?`<small class="status-viewers">${status.viewer_count||0} views</small>`:''}</article>`}).join('');const m=modal('Updates / Status',`<form id="status-form" class="inline-form"><textarea name="text" maxlength="700" rows="2" placeholder="Type a status…"></textarea><input type="file" name="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4"><button class="primary">Post status</button><p class="error" id="status-error"></p></form><div class="status-list">${cards||'<p class="empty">No active statuses yet.</p>'}</div>`);m.querySelector('#status-form').onsubmit=e=>createStatus(e,m);for(const status of statuses){const card=m.querySelector(`[data-status-id="${status.id}"]`);if(status.media_url)renderStatusMedia(status,card.querySelector('.status-content'));card.onclick=async e=>{if(e.target.closest('.status-delete'))return;await api(`/statuses/${status.id}/view`,{method:'POST'}).catch(()=>{});card.classList.add('viewed')};card.querySelector('.status-delete')?.addEventListener('click',async()=>{await api(`/statuses/${status.id}`,{method:'DELETE'});m.remove();showStatuses()})}}catch(error){alert(error.message)}}
 function showProfile(){const u=state.user||{};const m=modal('Your profile',`<div class="profile-hero"><div class="profile-avatar-wrap"><div class="avatar profile-avatar" id="profile-avatar">${esc(displayName(u)[0])}</div><label class="avatar-upload" aria-label="Change profile photo">＋<input type="file" id="avatar-input" accept="image/jpeg,image/png,image/webp,image/gif"></label></div><div><h3>${esc(displayName(u))}</h3><p>@${esc(u.username)}${(u.is_verified||u.isVerified)?' · ✓ Verified':''}</p></div></div><form id="profile-form" class="inline-form"><div class="field"><label>Display name</label><input name="display_name" maxlength="80" value="${esc((u.display_name||u.displayName))}" required></div><div class="field"><label>About / bio</label><textarea name="bio" maxlength="500" rows="3">${esc(u.bio)}</textarea></div><div class="field"><label>Language</label><select name="language"><option value="si" ${u.language==='si'?'selected':''}>සිංහල</option><option value="ta" ${u.language==='ta'?'selected':''}>தமிழ்</option><option value="en" ${u.language==='en'?'selected':''}>English</option></select></div><button class="primary">Save profile</button><p class="error" id="profile-error"></p></form><div class="profile-details"><span>Phone</span><b>${esc(u.phone||'Not available')}</b><span>Last seen</span><b>${(u.last_seen||u.lastSeen)?new Date((u.last_seen||u.lastSeen)).toLocaleString():'Recently active'}</b></div>`);if((u.avatar_url||u.avatarUrl))loadMedia((u.avatar_url||u.avatarUrl)).then(url=>{m.querySelector('#profile-avatar').innerHTML=`<img src="${url}" alt="Profile photo">`}).catch(()=>{});m.querySelector('#avatar-input').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const form=new FormData();form.append('file',file);const data=await api('/users/me/avatar',{method:'POST',body:form});state.user.avatar_url=data.url;const url=await loadMedia(data.url);m.querySelector('#profile-avatar').innerHTML=`<img src="${url}" alt="Profile photo">`}catch(error){m.querySelector('#profile-error').textContent=error.message}};m.querySelector('#profile-form').onsubmit=async e=>{e.preventDefault();try{const data=await api('/users/me',{method:'PUT',body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});state.user=data.user;localStorage.setItem('chatlk_user',JSON.stringify(state.user));m.remove();render()}catch(error){m.querySelector('#profile-error').textContent=error.message}}}
-function showNewChat(){const m=modal('Start a new chat',`<p>Search by username, phone, or display name.</p><input class="search" id="user-query" placeholder="e.g. user_name or +9477..." autofocus><div id="user-results"><p class="empty">Type at least 2 characters.</p></div>`);m.querySelector('#user-query').oninput=searchUsers}
-let searchTimer;function searchUsers(e){clearTimeout(searchTimer);const value=e.target.value.trim(),results=e.target.closest('.modal').querySelector('#user-results');if(value.length<2){results.innerHTML='<p class="empty">Type at least 2 characters.</p>';return}searchTimer=setTimeout(async()=>{try{const data=await api(`/users/search?q=${encodeURIComponent(value)}`);results.replaceChildren();if(!data.users?.length){results.innerHTML='<p class="empty">No users found.</p>';return}for(const user of data.users){const button=document.createElement('button');button.className='chat-item';button.innerHTML=`<span class="avatar">${esc(displayName(user)[0])}</span><span class="chat-meta"><strong>${esc(displayName(user))}</strong><span>@${esc(user.username)}</span></span>`;button.onclick=()=>createDirectChat(user);results.append(button)}}catch(error){results.innerHTML=`<p class="error">${esc(error.message)}</p>`}},250)}
+async function showNewChat(){
+  await refreshContacts().catch(()=>{});
+  const hasContactPicker = ('contacts' in navigator && 'ContactsManager' in window);
+
+  const m = modal('New Chat / නව සංවාදයක්', `
+    <div class="new-chat-container">
+      <div class="new-chat-actions">
+        <button type="button" class="nc-action-btn" id="nc-btn-group">
+          <span class="nc-action-icon nc-icon-group">👥</span>
+          <span class="nc-action-text">
+            <strong>New Group</strong>
+            <small>නව සමූහයක් සාදන්න</small>
+          </span>
+          <span class="nc-action-chevron">›</span>
+        </button>
+
+        <button type="button" class="nc-action-btn" id="nc-btn-contact">
+          <span class="nc-action-icon nc-icon-contact">👤</span>
+          <span class="nc-action-text">
+            <strong>New Contact</strong>
+            <small>නව සම්බන්ධතාවක් එක්කරන්න</small>
+          </span>
+          <span class="nc-action-chevron">›</span>
+        </button>
+
+        <button type="button" class="nc-action-btn nc-wa-btn" id="nc-btn-wa">
+          <span class="nc-action-icon nc-icon-wa">📲</span>
+          <span class="nc-action-text">
+            <strong style="color:#075e54;">Invite via WhatsApp</strong>
+            <small>WhatsApp හරහා මිතුරන්ට ආරාධනා කරන්න</small>
+          </span>
+          <span class="nc-badge-pill">WhatsApp</span>
+        </button>
+
+        ${hasContactPicker ? `
+        <button type="button" class="nc-action-btn" id="nc-btn-phone-contacts">
+          <span class="nc-action-icon nc-icon-phone">📖</span>
+          <span class="nc-action-text">
+            <strong>Phone Contacts</strong>
+            <small>දුරකථනයේ Contacts වලින් තෝරා invite කරන්න</small>
+          </span>
+          <span class="nc-badge-pill">Select</span>
+        </button>` : ''}
+      </div>
+
+      <div class="nc-search-shell">
+        <span class="nc-search-icon">🔍</span>
+        <input class="search nc-search-input" id="user-query" placeholder="Search contacts, username, or +94..." autofocus>
+        <button type="button" id="nc-clear-search" class="nc-clear-btn" style="display:none;">×</button>
+      </div>
+
+      <div id="nc-phone-contacts-area" style="display:none;"></div>
+
+      <div id="user-results" class="nc-results-area"></div>
+    </div>
+  `);
+
+  m.querySelector('#nc-btn-group').onclick = () => { m.remove(); showGroup(); };
+  m.querySelector('#nc-btn-contact').onclick = () => { m.remove(); showContacts(); };
+  m.querySelector('#nc-btn-wa').onclick = () => { sendWhatsAppInvite(); };
+
+  if (hasContactPicker) {
+    m.querySelector('#nc-btn-phone-contacts').onclick = async () => {
+      try {
+        const picked = await navigator.contacts.select(['name', 'tel'], { multiple: true });
+        if (picked && picked.length) {
+          renderDeviceContacts(picked, m);
+        }
+      } catch (err) {}
+    };
+  }
+
+  const queryInput = m.querySelector('#user-query');
+  const clearBtn = m.querySelector('#nc-clear-search');
+  const resultsBox = m.querySelector('#user-results');
+
+  clearBtn.onclick = () => {
+    queryInput.value = '';
+    clearBtn.style.display = 'none';
+    renderDefaultContacts(resultsBox, m);
+    queryInput.focus();
+  };
+
+  queryInput.oninput = (e) => {
+    const val = e.target.value.trim();
+    clearBtn.style.display = val ? 'block' : 'none';
+    searchUsers(e, m);
+  };
+
+  renderDefaultContacts(resultsBox, m);
+}
+
+function renderDefaultContacts(resultsBox, modalNode) {
+  const contacts = state.contacts || [];
+  resultsBox.replaceChildren();
+
+  const header = document.createElement('div');
+  header.className = 'nc-section-header';
+  header.innerHTML = `<span>Contacts on ChatLK (${contacts.length})</span>`;
+  resultsBox.append(header);
+
+  if (!contacts.length) {
+    const empty = document.createElement('div');
+    empty.className = 'nc-empty-contacts';
+    empty.innerHTML = `
+      <p>No saved contacts yet.</p>
+      <small>Use <b>New Contact</b> to add people or invite them via WhatsApp.</small>
+      <div style="margin-top:10px;">
+        <button type="button" class="primary" id="nc-empty-invite-btn" style="min-height:36px;font-size:13px;background:#25d366;border:none;">📲 WhatsApp හරහා Invite කරන්න</button>
+      </div>
+    `;
+    empty.querySelector('#nc-empty-invite-btn').onclick = () => sendWhatsAppInvite();
+    resultsBox.append(empty);
+    return;
+  }
+
+  for (const contact of contacts) {
+    const row = document.createElement('div');
+    row.className = 'nc-contact-row';
+    const initial = esc((contact.nickname || displayName(contact) || 'U')[0]);
+    const name = esc(contact.nickname || displayName(contact));
+    const username = esc(contact.username || '');
+    const phone = esc(contact.phone || '');
+    const isOnline = Boolean(contact.is_online);
+
+    row.innerHTML = `
+      <div class="nc-contact-main">
+        <span class="avatar-wrap">
+          <span class="avatar">${initial}</span>
+          <span class="presence-dot ${isOnline ? 'online' : 'offline'}" title="${isOnline ? 'Online' : 'Offline'}"></span>
+        </span>
+        <div class="nc-contact-info">
+          <strong>${name}</strong>
+          <span>@${username}${phone ? ` · ${phone}` : ''}</span>
+        </div>
+      </div>
+      <div class="nc-contact-btns">
+        <button type="button" class="primary nc-chat-btn">Chat</button>
+        <button type="button" class="nc-wa-mini-btn" title="Send WhatsApp Invite">📲</button>
+      </div>
+    `;
+
+    row.querySelector('.nc-contact-main').onclick = () => {
+      modalNode.remove();
+      createDirectChat(contact);
+    };
+    row.querySelector('.nc-chat-btn').onclick = () => {
+      modalNode.remove();
+      createDirectChat(contact);
+    };
+    row.querySelector('.nc-wa-mini-btn').onclick = (e) => {
+      e.stopPropagation();
+      sendWhatsAppInvite(contact.phone || '');
+    };
+
+    resultsBox.append(row);
+  }
+}
+
+function renderDeviceContacts(pickedContacts, modalNode) {
+  const container = modalNode.querySelector('#nc-phone-contacts-area');
+  if (!container) return;
+  container.style.display = 'block';
+  container.replaceChildren();
+
+  const header = document.createElement('div');
+  header.className = 'nc-section-header';
+  header.style.marginTop = '14px';
+  header.innerHTML = `<span>Selected Phone Contacts (${pickedContacts.length})</span>`;
+  container.append(header);
+
+  for (const pc of pickedContacts) {
+    const name = (pc.name && pc.name[0]) || 'Contact';
+    const tel = (pc.tel && pc.tel[0]) || '';
+    const row = document.createElement('div');
+    row.className = 'nc-contact-row';
+    row.innerHTML = `
+      <div class="nc-contact-main">
+        <span class="avatar">${esc(name[0] || 'C')}</span>
+        <div class="nc-contact-info">
+          <strong>${esc(name)}</strong>
+          <span>${esc(tel || 'No phone number')}</span>
+        </div>
+      </div>
+      <div class="nc-contact-btns">
+        <button type="button" class="primary nc-chat-btn" style="background:#25d366;border-color:#25d366;">📲 WhatsApp Invite</button>
+      </div>
+    `;
+    row.querySelector('.nc-chat-btn').onclick = () => {
+      sendWhatsAppInvite(tel);
+    };
+    container.append(row);
+  }
+}
+
+let searchTimer;
+function searchUsers(e, modalNode) {
+  clearTimeout(searchTimer);
+  const m = modalNode || e.target.closest('.modal');
+  const value = e.target.value.trim();
+  const resultsBox = m.querySelector('#user-results');
+  
+  if (!value) {
+    renderDefaultContacts(resultsBox, m);
+    return;
+  }
+
+  const queryLower = value.toLowerCase();
+  const localMatches = (state.contacts || []).filter(c => {
+    const name = (c.nickname || displayName(c) || '').toLowerCase();
+    const uname = (c.username || '').toLowerCase();
+    const ph = (c.phone || '').toLowerCase();
+    return name.includes(queryLower) || uname.includes(queryLower) || ph.includes(queryLower);
+  });
+
+  renderSearchResults(resultsBox, m, value, localMatches, [], true);
+
+  if (value.length < 2) return;
+
+  searchTimer = setTimeout(async () => {
+    try {
+      const data = await api(`/users/search?q=${encodeURIComponent(value)}`);
+      const serverUsers = data.users || [];
+      renderSearchResults(resultsBox, m, value, localMatches, serverUsers, false);
+    } catch (err) {
+      renderSearchResults(resultsBox, m, value, localMatches, [], false, err.message);
+    }
+  }, 220);
+}
+
+function renderSearchResults(resultsBox, modalNode, query, localMatches, serverUsers, loading = false, errorMsg = '') {
+  resultsBox.replaceChildren();
+
+  const localIds = new Set(localMatches.map(c => c.id));
+  const otherUsers = (serverUsers || []).filter(u => !localIds.has(u.id) && u.id !== state.user?.id);
+
+  if (localMatches.length > 0) {
+    const sec1 = document.createElement('div');
+    sec1.className = 'nc-section-header';
+    sec1.innerHTML = `<span>Saved Contacts (${localMatches.length})</span>`;
+    resultsBox.append(sec1);
+
+    for (const contact of localMatches) {
+      const row = document.createElement('div');
+      row.className = 'nc-contact-row';
+      const initial = esc(displayName(contact)[0] || 'U');
+      const isOnline = Boolean(contact.is_online);
+      row.innerHTML = `
+        <div class="nc-contact-main">
+          <span class="avatar-wrap">
+            <span class="avatar">${initial}</span>
+            <span class="presence-dot ${isOnline ? 'online' : 'offline'}"></span>
+          </span>
+          <div class="nc-contact-info">
+            <strong>${esc(contact.nickname || displayName(contact))}</strong>
+            <span>@${esc(contact.username)}</span>
+          </div>
+        </div>
+        <div class="nc-contact-btns">
+          <button type="button" class="primary nc-chat-btn">Chat</button>
+          <button type="button" class="nc-wa-mini-btn" title="Invite on WhatsApp">📲</button>
+        </div>
+      `;
+      row.querySelector('.nc-contact-main').onclick = () => { modalNode.remove(); createDirectChat(contact); };
+      row.querySelector('.nc-chat-btn').onclick = () => { modalNode.remove(); createDirectChat(contact); };
+      row.querySelector('.nc-wa-mini-btn').onclick = (e) => { e.stopPropagation(); sendWhatsAppInvite(contact.phone || ''); };
+      resultsBox.append(row);
+    }
+  }
+
+  if (otherUsers.length > 0) {
+    const sec2 = document.createElement('div');
+    sec2.className = 'nc-section-header';
+    sec2.innerHTML = `<span>ChatLK Users (${otherUsers.length})</span>`;
+    resultsBox.append(sec2);
+
+    for (const user of otherUsers) {
+      const row = document.createElement('div');
+      row.className = 'nc-contact-row';
+      const initial = esc(displayName(user)[0] || 'U');
+      row.innerHTML = `
+        <div class="nc-contact-main">
+          <span class="avatar">${initial}</span>
+          <div class="nc-contact-info">
+            <strong>${esc(displayName(user))}</strong>
+            <span>@${esc(user.username)}</span>
+          </div>
+        </div>
+        <div class="nc-contact-btns">
+          <button type="button" class="primary nc-chat-btn">Chat</button>
+        </div>
+      `;
+      row.querySelector('.nc-contact-main').onclick = () => { modalNode.remove(); createDirectChat(user); };
+      row.querySelector('.nc-chat-btn').onclick = () => { modalNode.remove(); createDirectChat(user); };
+      resultsBox.append(row);
+    }
+  }
+
+  if (!loading && localMatches.length === 0 && otherUsers.length === 0) {
+    const emptyNotice = document.createElement('div');
+    emptyNotice.className = 'nc-not-found-card';
+    emptyNotice.innerHTML = `
+      <p>No ChatLK user found for "<b>${esc(query)}</b>"</p>
+      <small>WhatsApp හරහා මෙම මිතුරාට ChatLK වෙත ආරාධනා කරන්න!</small>
+    `;
+    resultsBox.append(emptyNotice);
+  }
+
+  const isPhone = /^[\d\s+\-()]{6,}$/.test(query);
+  const waCard = document.createElement('div');
+  waCard.className = 'nc-wa-invite-banner';
+  waCard.innerHTML = `
+    <div class="nc-wa-invite-content">
+      <span class="nc-wa-badge-icon">📲</span>
+      <div>
+        <strong>${isPhone ? `Invite ${esc(query)} on WhatsApp` : 'Invite to ChatLK on WhatsApp'}</strong>
+        <small>WhatsApp හරහා ChatLK වෙත එකතු වීමට ආරාධනා කරන්න</small>
+      </div>
+    </div>
+    <button type="button" class="nc-wa-invite-submit">Send Invite ↗</button>
+  `;
+  waCard.querySelector('.nc-wa-invite-submit').onclick = () => {
+    sendWhatsAppInvite(isPhone ? query : '');
+  };
+  resultsBox.append(waCard);
+}
 async function createDirectChat(user){try{const data=await api('/chats',{method:'POST',body:JSON.stringify({type:'direct',participantIds:[user.id]})});document.querySelector('.modal-backdrop')?.remove();await refreshChats();const chat=state.chats.find(item=>item.id===data.id);if(chat)openChat(chat)}catch(error){const results=document.querySelector('.modal-backdrop #user-results');if(results)results.innerHTML=`<p class="error">${esc(error.message)}</p>`}}
 async function refreshChats(){const data=await api('/chats');state.chats=data.chats||[];drawChats()}
 async function refreshContacts(){const data=await api('/contacts');state.contacts=data.contacts||[]}
@@ -79,7 +403,31 @@ function drawReplyPreview(){const box=document.querySelector('#reply-preview');i
 async function editMessage(message){const text=prompt('Edit message',message.text||'');if(text===null||!text.trim())return;try{await api(`/messages/${message.id}`,{method:'PUT',body:JSON.stringify({text})});message.text=text.trim();message.is_edited=1;drawMessages()}catch(error){alert(error.message)}}
 async function deleteMessage(message){if(!confirm('Delete this message?'))return;try{await api(`/messages/${message.id}`,{method:'DELETE'});state.messages=state.messages.filter(item=>item.id!==message.id);drawMessages()}catch(error){alert(error.message)}}
 function handleTyping(e){if(!state.socket||state.socket.readyState!==WebSocket.OPEN)return;state.socket.send(JSON.stringify({type:'typing',isTyping:Boolean(e.target.value.trim())}));clearTimeout(state.typingTimer);state.typingTimer=setTimeout(()=>state.socket?.send(JSON.stringify({type:'typing',isTyping:false})),900)}
-function inviteContact(phone){const text=`Join me on ChatLK: ${location.origin}`;const link=`https://wa.me/${phone.replace(/[^0-9]/g,'')}?text=${encodeURIComponent(text)}`;if(navigator.share)navigator.share({title:'Join ChatLK',text,url:link}).catch(()=>{});else{navigator.clipboard?.writeText(link);alert('Invite link copied to clipboard.')}}
+function sendWhatsAppInvite(phone = '') {
+  let cleanPhone = (phone || '').replace(/[^0-9]/g, '');
+  if (cleanPhone.startsWith('0') && cleanPhone.length === 10) {
+    cleanPhone = '94' + cleanPhone.slice(1);
+  }
+  const inviteText = `ChatLK වෙත සම්බන්ධ වන්න! ශ්‍රී ලංකාවේ වේගවත්, පුද්ගලික පණිවිඩ හුවමාරු යෙදුම (Sinhala, Tamil & English):\n${location.origin}`;
+  const waUrl = cleanPhone 
+    ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(inviteText)}`
+    : `https://wa.me/?text=${encodeURIComponent(inviteText)}`;
+
+  if (!cleanPhone && navigator.share) {
+    navigator.share({
+      title: 'ChatLK Messenger',
+      text: inviteText,
+      url: location.origin
+    }).catch(() => {
+      window.open(waUrl, '_blank', 'noopener,noreferrer');
+    });
+  } else {
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
+  }
+}
+function inviteContact(phone){
+  sendWhatsAppInvite(phone);
+}
 function showChatInfo(){if(!state.active)return;api(`/chats/${state.active.id}`).then(data=>{const people=data.participants||[];const peopleHtml=people.map(user=>{const seen=user.last_seen?new Date(user.last_seen).toLocaleString():'Recently active';return `<div class="detail-person"><div class="avatar detail-avatar">${esc(displayName(user)[0])}</div><div><b>${esc(displayName(user))}</b><span>@${esc(user.username)} · ${esc(user.role)}</span><span>${esc(user.phone||'Phone unavailable')}</span><span>${esc(user.bio||'No bio added')}</span><span>${esc(user.language==='si'?'සිංහල':user.language==='ta'?'தமிழ்':'English')} · ${esc(seen)}</span></div></div>`}).join('');const heroName=state.active.name||'Direct chat';const modalNode=modal(state.active.type==='group'?'Group details':'User details',`<div class="chat-detail-hero"><div class="avatar large-avatar" id="chat-detail-avatar">${esc(heroName[0])}</div><h3>${esc(heroName)}</h3><p>${state.active.type==='group'?'Group conversation':'Profile and contact details'}</p></div><div class="detail-list">${peopleHtml}</div>${state.active.type==='group'?'<div style="padding:14px 16px;border-top:1px solid var(--line);text-align:center;"><button type="button" class="primary" id="open-grp-invite" style="min-height:42px;font-size:14px;">🔗 Share Group Invite Link / QR</button></div>':''}`);if(state.active.type==='group'){modalNode.querySelector('#open-grp-invite').onclick=()=>{modalNode.remove();showGroupInviteModal(state.active.id,state.active.name);}}const first=people.find(user=>user.id!==state.user?.id);if(first?.avatar_url)loadMedia(first.avatar_url).then(url=>{const image=document.createElement('img');image.src=url;image.alt=displayName(first);modalNode.querySelector('#chat-detail-avatar').replaceChildren(image)}).catch(()=>{})}).catch(error=>alert(error.message))}
 async function showChatSettingsModal(chat){try{const[settingsData,chatDetail]=await Promise.all([api('/users/me/settings').catch(()=>({autoTranslate:Boolean(state.user?.auto_translate||state.user?.autoTranslate),muteNotifications:Boolean(state.user?.mute_notifications||state.user?.muteNotifications),language:state.user?.language||'si'})),chat?api(`/chats/${chat.id}`).catch(()=>({isMuted:false})):Promise.resolve({isMuted:false})]);let autoTranslate=Boolean(settingsData.autoTranslate);let isMuted=chat?Boolean(chatDetail.isMuted):Boolean(settingsData.muteNotifications);let lang=settingsData.language||state.user?.language||'si';const title=chat?`${esc(chat.name||'Chat')} Settings`:'Chat Preferences';const m=modal(title,`<div class="chat-settings-wrap" style="display:flex;flex-direction:column;gap:16px;"><p style="margin:0;font-size:14px;color:var(--text-muted,#64748b);">Configure real-time translation and mute preferences. Changes are automatically saved to Cloudflare D1.</p><div style="background:var(--bg-card,#f8fafc);border:1px solid var(--border-color,#e2e8f0);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:14px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;"><div><strong style="display:block;font-size:15px;color:var(--text-main,#0f172a);">Auto-Translate Messages</strong><small style="color:var(--text-muted,#64748b);">Automatically translate incoming foreign language messages into your language</small></div><button type="button" id="toggle-at-btn" class="outline-btn" style="min-width:90px;font-weight:600;padding:6px 12px;border-radius:20px;cursor:pointer;background:${autoTranslate?'#0284c7':'transparent'};color:${autoTranslate?'#fff':'inherit'};border-color:${autoTranslate?'#0284c7':'#cbd5e1'};">${autoTranslate?'Enabled':'Disabled'}</button></div><div id="target-lang-row" style="display:${autoTranslate?'flex':'none'};align-items:center;justify-content:space-between;border-top:1px dashed var(--border-color,#e2e8f0);padding-top:10px;"><span style="font-size:13px;color:var(--text-muted,#64748b);">Target language:</span><select id="target-lang-select" style="padding:4px 8px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;"><option value="si" ${lang==='si'?'selected':''}>සිංහල (Sinhala)</option><option value="ta" ${lang==='ta'?'selected':''}>தமிழ் (Tamil)</option><option value="en" ${lang==='en'?'selected':''}>English</option></select></div></div><div style="background:var(--bg-card,#f8fafc);border:1px solid var(--border-color,#e2e8f0);border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;"><div><strong style="display:block;font-size:15px;color:var(--text-main,#0f172a);">Mute Notifications</strong><small style="color:var(--text-muted,#64748b);">${chat?'Silence alerts and push notifications for this conversation':'Silence all push and sound notifications'}</small></div><button type="button" id="toggle-mute-btn" class="outline-btn" style="min-width:90px;font-weight:600;padding:6px 12px;border-radius:20px;cursor:pointer;background:${isMuted?'#ef4444':'transparent'};color:${isMuted?'#fff':'inherit'};border-color:${isMuted?'#ef4444':'#cbd5e1'};">${isMuted?'Muted':'Active'}</button></div><div id="settings-status-msg" style="font-size:12px;color:#10b981;min-height:18px;text-align:right;"></div></div>`);const statusMsg=m.querySelector('#settings-status-msg');const atBtn=m.querySelector('#toggle-at-btn');const langRow=m.querySelector('#target-lang-row');const muteBtn=m.querySelector('#toggle-mute-btn');const langSelect=m.querySelector('#target-lang-select');atBtn.onclick=async()=>{autoTranslate=!autoTranslate;atBtn.disabled=true;try{await api('/users/me/settings',{method:'PATCH',body:JSON.stringify({autoTranslate})});if(state.user){state.user.auto_translate=autoTranslate?1:0;state.user.autoTranslate=autoTranslate;localStorage.setItem('chatlk_user',JSON.stringify(state.user))}atBtn.textContent=autoTranslate?'Enabled':'Disabled';atBtn.style.background=autoTranslate?'#0284c7':'transparent';atBtn.style.color=autoTranslate?'#fff':'inherit';atBtn.style.borderColor=autoTranslate?'#0284c7':'#cbd5e1';langRow.style.display=autoTranslate?'flex':'none';statusMsg.textContent='Auto-translate preference saved to D1';setTimeout(()=>{if(statusMsg)statusMsg.textContent=''},2500)}catch(err){statusMsg.style.color='#ef4444';statusMsg.textContent=err.message}finally{atBtn.disabled=false}};if(langSelect){langSelect.onchange=async()=>{const selected=langSelect.value;try{await api('/users/me',{method:'PUT',body:JSON.stringify({language:selected})});if(state.user){state.user.language=selected;localStorage.setItem('chatlk_user',JSON.stringify(state.user))}statusMsg.textContent='Language saved to D1';setTimeout(()=>{if(statusMsg)statusMsg.textContent=''},2500)}catch(err){statusMsg.style.color='#ef4444';statusMsg.textContent=err.message}}};muteBtn.onclick=async()=>{isMuted=!isMuted;muteBtn.disabled=true;try{if(chat){if(isMuted){await api(`/chats/${chat.id}/mute`,{method:'POST'})}else{await api(`/chats/${chat.id}/mute`,{method:'DELETE'})}}else{await api('/users/me/settings',{method:'PATCH',body:JSON.stringify({muteNotifications:isMuted})});if(state.user){state.user.mute_notifications=isMuted?1:0;state.user.muteNotifications=isMuted;localStorage.setItem('chatlk_user',JSON.stringify(state.user))}}muteBtn.textContent=isMuted?'Muted':'Active';muteBtn.style.background=isMuted?'#ef4444':'transparent';muteBtn.style.color=isMuted?'#fff':'inherit';muteBtn.style.borderColor=isMuted?'#ef4444':'#cbd5e1';statusMsg.textContent='Mute preference saved to D1';setTimeout(()=>{if(statusMsg)statusMsg.textContent=''},2500)}catch(err){statusMsg.style.color='#ef4444';statusMsg.textContent=err.message}finally{muteBtn.disabled=false}}}catch(err){alert('Unable to load settings: '+err.message)}}
 function updateRecordingUI(){const button=document.querySelector('#voice-btn');if(!button)return;if(state.recording){button.classList.add('recording');button.textContent='■';button.setAttribute('aria-label','Stop recording');const seconds=Math.floor((Date.now()-state.recordingStartedAt)/1000);document.querySelector('#presence').textContent=`Recording audio… 0:${String(seconds).padStart(2,'0')}`;}}

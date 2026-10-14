@@ -519,3 +519,56 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .call-btn { min-width: 54px; min-height: 54px; border-radius: 50%; border: none; font-size: 1.4rem; display: grid; place-items: center; cursor: pointer; }
 .call-btn.end { background: #ef4444; color: #fff; }
 .call-btn.accept { background: #22c55e; color: #fff; }
+
+/* New Chat WhatsApp-style Action Hub */
+.new-chat-container { display: flex; flex-direction: column; gap: 4px; }
+.new-chat-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
+.nc-action-btn { display: flex; align-items: center; gap: 13px; width: 100%; padding: 10px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--ink); cursor: pointer; text-align: left; transition: all .16s ease; }
+.nc-action-btn:hover { background: var(--surface-soft); border-color: var(--line-strong); }
+.nc-action-icon { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-size: 1.15rem; flex: none; }
+.nc-icon-group { background: #e0f2fe; color: #0284c7; }
+.nc-icon-contact { background: #fef3c7; color: #d97706; }
+.nc-icon-wa { background: #dcfce7; color: #16a34a; }
+.nc-icon-phone { background: #f3e8ff; color: #9333ea; }
+.nc-action-text { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 2px; }
+.nc-action-text strong { font-size: .88rem; font-weight: 700; color: var(--ink); }
+.nc-action-text small { font-size: .72rem; color: var(--ink-soft); }
+.nc-badge-pill { font-size: .65rem; font-weight: 700; padding: 3px 8px; border-radius: 20px; background: #25d366; color: white; flex: none; }
+.nc-action-chevron { color: var(--ink-faint); font-size: 1.25rem; font-weight: 300; flex: none; }
+.nc-search-shell { position: relative; display: flex; align-items: center; margin: 12px 0 8px; }
+.nc-search-icon { position: absolute; left: 14px; color: var(--ink-faint); font-size: .9rem; pointer-events: none; }
+.nc-search-input { width: 100%; padding: 12px 34px 12px 38px !important; border: 1px solid var(--line); border-radius: 12px; outline: 0; background: #fbfdfc; color: var(--ink); font-size: .84rem; }
+.nc-search-input:focus { border-color: var(--mint-deep); box-shadow: 0 0 0 3px rgba(141,229,189,.2); }
+.nc-clear-btn { position: absolute; right: 10px; background: none; border: none; color: var(--ink-soft); font-size: 1.25rem; cursor: pointer; padding: 2px 6px; }
+.nc-section-header { font-size: .69rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--forest); margin: 14px 0 6px; padding: 0 4px; display: flex; align-items: center; justify-content: space-between; }
+.nc-contact-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 8px; border-radius: 12px; border-bottom: 1px solid var(--line); transition: background .12s; }
+.nc-contact-row:hover { background: var(--surface-soft); }
+.nc-contact-main { display: flex; align-items: center; gap: 11px; flex: 1; min-width: 0; cursor: pointer; }
+.nc-contact-info { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+.nc-contact-info strong { font-size: .86rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nc-contact-info span { font-size: .72rem; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nc-contact-btns { display: flex; align-items: center; gap: 6px; flex: none; }
+.nc-chat-btn { padding: 6px 14px !important; min-height: 34px !important; font-size: .75rem !important; border-radius: 10px !important; }
+.nc-wa-mini-btn { width: 34px; height: 34px; border-radius: 10px; border: 1px solid rgba(37,211,102,0.4); background: rgba(37,211,102,0.12); color: #128c7e; font-size: 1.05rem; display: grid; place-items: center; cursor: pointer; transition: background .12s; }
+.nc-wa-mini-btn:hover { background: rgba(37,211,102,0.25); }
+.nc-empty-contacts { padding: 18px 12px; text-align: center; color: var(--ink-soft); font-size: .8rem; }
+.nc-empty-contacts p { margin: 0 0 4px; font-weight: 700; color: var(--ink); }
+.nc-not-found-card { padding: 14px; text-align: center; color: var(--ink-soft); font-size: .8rem; background: var(--surface-soft); border-radius: 12px; margin: 8px 0; }
+.nc-not-found-card p { margin: 0 0 4px; color: var(--ink); }
+.nc-wa-invite-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 13px 15px; border-radius: 14px; background: #ecfdf5; border: 1px solid #a7f3d0; }
+.nc-wa-invite-content { display: flex; align-items: center; gap: 11px; flex: 1; min-width: 0; }
+.nc-wa-badge-icon { font-size: 1.45rem; flex: none; }
+.nc-wa-invite-content strong { display: block; font-size: .86rem; color: #065f46; }
+.nc-wa-invite-content small { font-size: .71rem; color: #047857; }
+.nc-wa-invite-submit { padding: 8px 16px; border-radius: 999px; background: #25d366; color: white; border: none; font-weight: 700; font-size: .78rem; cursor: pointer; flex: none; box-shadow: 0 2px 8px rgba(37,211,102,.3); transition: transform .12s, box-shadow .12s; }
+.nc-wa-invite-submit:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(37,211,102,.4); }
+
+/* Dark mode overrides for new chat */
+.dark-mode .nc-action-btn { background: #152528; border-color: var(--line); }
+.dark-mode .nc-action-btn:hover { background: #1c3031; }
+.dark-mode .nc-search-input { background: #152528; border-color: var(--line); color: var(--ink); }
+.dark-mode .nc-contact-row:hover { background: #1c3031; }
+.dark-mode .nc-wa-invite-banner { background: #062b24; border-color: #0d5f4e; }
+.dark-mode .nc-wa-invite-content strong { color: #6ee7b7; }
+.dark-mode .nc-wa-invite-content small { color: #a7f3d0; }
+.dark-mode .nc-not-found-card { background: #152528; }
