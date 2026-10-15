@@ -114,6 +114,7 @@ export const UserPresenceStatus: React.FC<UserPresenceStatusProps> = ({
       const intervalId = setInterval(fetchPresence, pollInterval);
       return () => clearInterval(intervalId);
     }
+    return undefined;
   }, [userId, fetchPresence, pollInterval]);
 
   // Size dimensions for the dot

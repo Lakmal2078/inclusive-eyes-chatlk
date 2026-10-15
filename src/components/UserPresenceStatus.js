@@ -83,6 +83,7 @@ const UserPresenceStatus = ({
       const intervalId = setInterval(fetchPresence, pollInterval);
       return () => clearInterval(intervalId);
     }
+    return void 0;
   }, [userId, fetchPresence, pollInterval]);
   const sizeMap = {
     sm: {

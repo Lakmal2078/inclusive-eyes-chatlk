@@ -45,7 +45,7 @@ function createD1Database(dbPath = './data/chatlk.db') {
             !msg.includes('already exists') &&
             !msg.includes('no such table: sqlite_master')
           ) {
-            console.warn(`[ChatLK] Migration note in ${file}:`, msg);
+            console.warn('[ChatLK] Migration note in', file, msg);
           }
         }
       }

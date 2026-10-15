@@ -19,16 +19,16 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Java JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@8df1039502a140fb60233474b801f8521b77d30f # v4.3.0
         with:
           distribution: 'temurin'
           java-version: '21'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@94b5068f5730b9907587c8b26056345f57b9973e # v4.1.1
 
       - name: Grant execute permission for gradlew
         run: chmod +x android/gradlew
@@ -38,7 +38,7 @@ jobs:
         run: ./gradlew assembleDebug --stacktrace
 
       - name: Upload Debug APK Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf6581a511820c01c156 # v4.4.3
         with:
           name: ChatLK-Debug-APK
           path: android/app/build/outputs/apk/debug/*.apk

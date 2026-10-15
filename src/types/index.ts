@@ -136,19 +136,19 @@ export interface UserPresence {
 export type PresenceStatus = 'online' | 'offline';
 
 export interface UserPresenceStatusProps {
-  userId?: string;
-  initialIsOnline?: boolean;
-  initialLastSeen?: string | number | null;
-  authToken?: string;
-  apiBase?: string;
-  showLabel?: boolean;
-  size?: 'sm' | 'md' | 'lg';
-  position?: 'top-right' | 'bottom-right' | 'top-left' | 'bottom-left' | 'inline';
-  pollInterval?: number;
-  className?: string;
-  dotClassName?: string;
+  userId?: string | undefined;
+  initialIsOnline?: boolean | undefined;
+  initialLastSeen?: string | number | null | undefined;
+  authToken?: string | undefined;
+  apiBase?: string | undefined;
+  showLabel?: boolean | undefined;
+  size?: 'sm' | 'md' | 'lg' | undefined;
+  position?: 'top-right' | 'bottom-right' | 'top-left' | 'bottom-left' | 'inline' | undefined;
+  pollInterval?: number | undefined;
+  className?: string | undefined;
+  dotClassName?: string | undefined;
   children?: any;
-  onChange?: (presence: UserPresence) => void;
+  onChange?: ((presence: UserPresence) => void) | undefined;
 }
 
 export interface Bindings {

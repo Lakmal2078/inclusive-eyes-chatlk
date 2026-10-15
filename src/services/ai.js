@@ -70,7 +70,7 @@ export async function autoTranslateMessage(env, text) {
         }
       }
     } catch (err) {
-      console.warn(`[ChatLK AI] Translation to ${target} note:`, err.message);
+      console.warn('[ChatLK AI] Translation note for target', target, ':', err.message);
       result[target] = text;
     }
   }
