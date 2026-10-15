@@ -9,6 +9,7 @@ function securityHeaders() {
     c.res.headers.set('X-Frame-Options', 'DENY');
     c.res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
     c.res.headers.set('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=()');
+    c.res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
     c.res.headers.set(
       'Content-Security-Policy',
       "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' wss:; frame-ancestors 'none';"
@@ -70,20 +71,30 @@ app.get('/api/manifest.json', serveManifest);
 app.get('/ws', async c => {
   const userId = c.req.query('userId');
   const chatId = c.req.query('chatId');
+  const ticket = c.req.query('ticket');
   const token = c.req.query('token');
-  if (!userId || !chatId || !token) return c.json({ error: 'Missing WebSocket credentials' }, 401);
+  if (!userId || !chatId || (!token && !ticket)) return c.json({ error: 'Missing WebSocket credentials' }, 401);
 
   try {
-    if (c.env.CACHE) {
-      const isRevoked = await c.env.CACHE.get(`blacklist:${token}`);
-      if (isRevoked) return c.json({ error: 'Token has been revoked' }, 401);
-    }
-    const payload = await verifyJwt(token, c.env.JWT_SECRET);
-    if (!payload || payload.sub !== userId) {
-      return c.json({ error: 'Invalid or expired token' }, 401);
+    if (ticket) {
+      if (!c.env.CACHE) return c.json({ error: 'Ticket authentication unavailable' }, 401);
+      const ticketUserId = await c.env.CACHE.get(`ws_ticket:${ticket}`);
+      if (!ticketUserId || ticketUserId !== userId) {
+        return c.json({ error: 'Invalid or expired WebSocket ticket' }, 401);
+      }
+      await c.env.CACHE.delete(`ws_ticket:${ticket}`);
+    } else {
+      if (c.env.CACHE) {
+        const isRevoked = await c.env.CACHE.get(`blacklist:${token}`);
+        if (isRevoked) return c.json({ error: 'Token has been revoked' }, 401);
+      }
+      const payload = await verifyJwt(token, c.env.JWT_SECRET);
+      if (!payload || payload.sub !== userId) {
+        return c.json({ error: 'Invalid or expired token' }, 401);
+      }
     }
   } catch (err) {
-    return c.json({ error: 'Invalid or expired token' }, 401);
+    return c.json({ error: 'Invalid or expired credentials' }, 401);
   }
 
   const id = c.env.CHAT_ROOM.idFromName(chatId);

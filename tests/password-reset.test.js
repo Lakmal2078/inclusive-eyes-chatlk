@@ -42,6 +42,7 @@ test('Password Reset Suite', async (t) => {
       body: JSON.stringify({
         username: 'reset_user',
         phone: '+94778899000',
+        otp: '123456',
         newPassword: 'short'
       })
     }, env);
@@ -50,13 +51,58 @@ test('Password Reset Suite', async (t) => {
     assert.match(json.error, /between 8 and 128/i);
   });
 
-  await t.test('Successfully resets password with matching username and phone', async () => {
+  await t.test('Rejects reset when OTP is missing or invalid', async () => {
+    // 1. Without OTP
+    const resNoOtp = await app.request('/api/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: 'reset_user',
+        phone: '+94778899000',
+        newPassword: 'BrandNewPassword123'
+      })
+    }, env);
+    assert.equal(resNoOtp.status, 400);
+
+    // 2. With wrong OTP
+    const resWrongOtp = await app.request('/api/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: 'reset_user',
+        phone: '+94778899000',
+        otp: '000000',
+        newPassword: 'BrandNewPassword123'
+      })
+    }, env);
+    assert.equal(resWrongOtp.status, 401);
+  });
+
+  let validOtp = '';
+  await t.test('Requests OTP via forgot-password endpoint', async () => {
+    const res = await app.request('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: 'reset_user',
+        phone: '+94 77 889 9000'
+      })
+    }, env);
+    assert.equal(res.status, 200);
+    const json = await res.json();
+    assert.equal(json.success, true);
+    assert.ok(json.devOtp);
+    validOtp = json.devOtp;
+  });
+
+  await t.test('Successfully resets password with matching username, phone, and valid OTP', async () => {
     const res = await app.request('/api/auth/reset-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         username: 'reset_user',
         phone: '+94 77 889 9000', // Test phone with spaces
+        otp: validOtp,
         newPassword: 'BrandNewPassword123'
       })
     }, env);

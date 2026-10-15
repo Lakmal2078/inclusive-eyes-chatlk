@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { deleteFile, uploadFile } from '../lib/r2.js';
-import { generateId, jsonBody, mediaExtension, publicUser } from '../lib/utils.js';
+import { escapeLike, generateId, jsonBody, maskPhone, mediaExtension, publicUser } from '../lib/utils.js';
 import { dbService } from '../services/database.js';
 
 export const userRoutes = new Hono();
@@ -10,7 +10,7 @@ export const userRoutes = new Hono();
  */
 userRoutes.get('/me', async c => {
   const user = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(c.get('userId')).first();
-  return c.json(publicUser(user));
+  return c.json(publicUser(user, true));
 });
 
 /**
@@ -58,7 +58,7 @@ userRoutes.patch('/me', async c => {
   }
 
   const updated = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(c.get('userId')).first();
-  return c.json({ user: publicUser(updated) });
+  return c.json({ user: publicUser(updated, true) });
 });
 
 /**
@@ -132,7 +132,7 @@ userRoutes.put('/me', async c => {
       Date.now(),
       c.get('userId')
     ).run();
-  return c.json({ user: publicUser(await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(c.get('userId')).first()) });
+  return c.json({ user: publicUser(await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(c.get('userId')).first(), true) });
 });
 
 /**
@@ -280,37 +280,25 @@ userRoutes.delete('/:id/block', async c => {
 });
 
 /**
- * GET /api/users/:id - Get user profile (Feature 8)
- */
-userRoutes.get('/:id', async c => {
-  const id = c.req.param('id');
-  const user = await c.env.DB.prepare(
-    'SELECT id, username, display_name, avatar_url, bio, role, is_online, last_seen, created_at FROM users WHERE id = ?'
-  ).bind(id).first();
-
-  if (!user) {
-    return c.json({ error: 'User not found' }, 404);
-  }
-
-  return c.json({ user });
-});
-
-/**
  * Existing search and contacts
  */
 userRoutes.get('/search', async c => {
   const query = (c.req.query('q') || '').trim().slice(0, 40);
   if (query.length < 2) return c.json({ users: [] });
-  const like = `%${query}%`;
+  const like = `%${escapeLike(query)}%`;
   const result = await c.env.DB.prepare(`SELECT id, username, display_name, avatar_url, is_verified FROM users
-    WHERE id != ? AND (username LIKE ? OR phone LIKE ? OR display_name LIKE ?) LIMIT 20`).bind(c.get('userId'), like, like, like).all();
+    WHERE id != ? AND (username LIKE ? ESCAPE '\\' OR phone LIKE ? ESCAPE '\\' OR display_name LIKE ? ESCAPE '\\') LIMIT 20`).bind(c.get('userId'), like, like, like).all();
   return c.json({ users: result.results || [] });
 });
 
 userRoutes.get('/contacts', async c => {
   const result = await c.env.DB.prepare(`SELECT u.id, u.username, u.phone, u.display_name, u.avatar_url, u.is_online, u.last_seen, c.nickname, c.is_blocked
     FROM contacts c JOIN users u ON u.id = c.contact_id WHERE c.user_id = ? ORDER BY u.display_name`).bind(c.get('userId')).all();
-  return c.json({ contacts: result.results || [] });
+  const contacts = (result.results || []).map(row => ({
+    ...row,
+    phone: row.phone ? maskPhone(row.phone) : null
+  }));
+  return c.json({ contacts });
 });
 
 userRoutes.post('/contacts', async c => {
@@ -343,4 +331,20 @@ userRoutes.patch('/contacts/:id', async c => {
 userRoutes.delete('/contacts/:id', async c => {
   await c.env.DB.prepare('DELETE FROM contacts WHERE user_id = ? AND contact_id = ?').bind(c.get('userId'), c.req.param('id')).run();
   return c.json({ ok: true });
+});
+
+/**
+ * GET /api/users/:id - Get user profile (Feature 8)
+ */
+userRoutes.get('/:id', async c => {
+  const id = c.req.param('id');
+  const user = await c.env.DB.prepare(
+    'SELECT id, username, display_name, avatar_url, bio, role, is_online, last_seen, created_at FROM users WHERE id = ?'
+  ).bind(id).first();
+
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+
+  return c.json({ user });
 });

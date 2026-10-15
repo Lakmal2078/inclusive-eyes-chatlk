@@ -6,6 +6,7 @@
  */
 
 import { Hono } from 'hono';
+import { escapeLike } from '../lib/utils.js';
 
 const searchRoutes = new Hono();
 
@@ -68,9 +69,9 @@ searchRoutes.get('/messages', async c => {
     JOIN chats c ON m.chat_id = c.id
     JOIN users u ON m.sender_id = u.id
     WHERE m.is_deleted = 0
-      AND m.text LIKE ?
+      AND m.text LIKE ? ESCAPE '\\'
   `;
-  const params = [userId, `%${q}%`];
+  const params = [userId, `%${escapeLike(q)}%`];
 
   if (chatId) { sql += ` AND m.chat_id = ?`; params.push(chatId); }
   if (from) {

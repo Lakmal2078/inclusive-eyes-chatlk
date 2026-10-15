@@ -42,7 +42,7 @@ authRoutes.post('/register', async c => {
     }
 
     return c.json({
-      user: publicUser(user),
+      user: publicUser(user, true),
       token: await issueToken(user, c.env),
       joinedChatId,
       joinedGroupName
@@ -60,7 +60,7 @@ authRoutes.post('/login', async c => {
   const credentials = user && decodePasswordRecord(user.password_hash);
   if (!user || !credentials?.hash || !(await verifyPassword(body.password, credentials.hash, credentials.salt))) return c.json({ error: 'Invalid credentials' }, 401);
   await c.env.DB.prepare('UPDATE users SET last_seen = ?, updated_at = ? WHERE id = ?').bind(Date.now(), Date.now(), user.id).run();
-  return c.json({ user: publicUser(user), token: await issueToken(user, c.env) });
+  return c.json({ user: publicUser(user, true), token: await issueToken(user, c.env) });
 });
 
 authRoutes.post('/refresh', async c => {
@@ -91,6 +91,71 @@ authRoutes.post('/logout', async c => {
   return c.json({ success: true, message: 'Logged out successfully' });
 });
 
+/**
+ * POST /api/auth/ws-ticket - Request an ephemeral, single-use ticket for WebSocket authentication (Feature SEC-004)
+ */
+authRoutes.post('/ws-ticket', async c => {
+  const header = c.req.header('Authorization') || '';
+  let userId = c.get('userId');
+  if (!userId && header.startsWith('Bearer ')) {
+    try {
+      userId = (await verify(header.slice(7), c.env.JWT_SECRET)).sub;
+    } catch {
+      return c.json({ error: 'Invalid or expired token' }, 401);
+    }
+  }
+  if (!userId) return c.json({ error: 'Authentication required' }, 401);
+
+  const ticket = generateId();
+  if (c.env.CACHE) {
+    await c.env.CACHE.put(`ws_ticket:${ticket}`, userId, { expirationTtl: 60 });
+  }
+
+  return c.json({ ticket, expiresIn: 60 });
+});
+
+/**
+ * POST /api/auth/forgot-password - Step 1: Request 6-digit verification code (Feature SEC-001)
+ */
+authRoutes.post('/forgot-password', async c => {
+  const body = await jsonBody(c);
+  if (!body) return c.json({ error: 'Request body is required' }, 400);
+
+  const identifier = (body.username || body.identifier)?.trim();
+  const phone = body.phone?.replace(/[\s\-]/g, '').trim();
+
+  if (!identifier || !validateUsername(identifier)) {
+    return c.json({ error: 'Valid username is required' }, 400);
+  }
+  if (!phone || !validatePhone(phone)) {
+    return c.json({ error: 'Valid phone number with country code (e.g. +94771234567) is required' }, 400);
+  }
+
+  const user = await c.env.DB.prepare('SELECT * FROM users WHERE username = ? AND phone = ?')
+    .bind(identifier, phone)
+    .first();
+
+  if (!user) {
+    return c.json({ error: 'No account found matching this username and phone number' }, 404);
+  }
+
+  // Generate a cryptographically secure 6-digit OTP
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  if (c.env.CACHE) {
+    await c.env.CACHE.put(`reset_otp:${user.id}`, otp, { expirationTtl: 600 });
+  }
+
+  return c.json({
+    success: true,
+    message: 'Verification code sent to registered phone number',
+    userId: user.id,
+    devOtp: c.env.ENVIRONMENT !== 'production' ? otp : undefined
+  });
+});
+
+/**
+ * POST /api/auth/reset-password - Step 2: Verify OTP and reset password (Feature SEC-001)
+ */
 authRoutes.post('/reset-password', async c => {
   const body = await jsonBody(c);
   if (!body) return c.json({ error: 'Request body is required' }, 400);
@@ -98,6 +163,7 @@ authRoutes.post('/reset-password', async c => {
   const identifier = (body.username || body.identifier)?.trim();
   const phone = body.phone?.replace(/[\s\-]/g, '').trim();
   const newPassword = body.newPassword || body.password;
+  const otp = (body.otp || body.code || '')?.trim();
 
   if (!identifier || !validateUsername(identifier)) {
     return c.json({ error: 'Valid username is required' }, 400);
@@ -117,6 +183,18 @@ authRoutes.post('/reset-password', async c => {
     return c.json({ error: 'No account found matching this username and phone number' }, 404);
   }
 
+  if (!otp) {
+    return c.json({ error: 'Verification code (OTP) is required' }, 400);
+  }
+
+  if (c.env.CACHE) {
+    const cachedOtp = await c.env.CACHE.get(`reset_otp:${user.id}`);
+    if (!cachedOtp || cachedOtp !== otp) {
+      return c.json({ error: 'Invalid or expired verification code' }, 401);
+    }
+    await c.env.CACHE.delete(`reset_otp:${user.id}`);
+  }
+
   const passwordRecord = await hashPassword(newPassword);
   const now = Date.now();
 
@@ -127,7 +205,7 @@ authRoutes.post('/reset-password', async c => {
   return c.json({
     success: true,
     message: 'Password reset successfully',
-    user: publicUser(user),
+    user: publicUser(user, true),
     token: await issueToken(user, c.env)
   });
 });

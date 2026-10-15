@@ -158,16 +158,31 @@ class MainActivity : ComponentActivity() {
         settings.domStorageEnabled = true
         settings.databaseEnabled = true
         settings.mediaPlaybackRequiresUserGesture = false
-        settings.allowFileAccess = true
+        settings.allowFileAccess = false
         settings.cacheMode = WebSettings.LOAD_DEFAULT
         settings.setSupportMultipleWindows(false)
         settings.userAgentString = settings.userAgentString + " ChatLK-Android/1.0"
 
+        val serverHost = Uri.parse(getString(R.string.chatlk_server_url)).host
+
         webView.webChromeClient = object : WebChromeClient() {
             override fun onPermissionRequest(request: PermissionRequest?) {
-                // Grant WebRTC camera & microphone to ChatLK
-                runOnUiThread {
-                    request?.grant(request.resources)
+                val originHost = request?.origin?.host
+                val isTrusted = originHost != null && (
+                    originHost.equals(serverHost, ignoreCase = true) ||
+                    originHost.equals("localhost", ignoreCase = true) ||
+                    originHost.equals("127.0.0.1", ignoreCase = true) ||
+                    originHost.equals("10.0.2.2", ignoreCase = true)
+                )
+
+                if (isTrusted) {
+                    runOnUiThread {
+                        request?.grant(request.resources)
+                    }
+                } else {
+                    runOnUiThread {
+                        request?.deny()
+                    }
                 }
             }
 
@@ -199,17 +214,26 @@ class MainActivity : ComponentActivity() {
                 view: WebView?,
                 request: WebResourceRequest?
             ): Boolean {
-                val url = request?.url?.toString() ?: return false
-                return if (url.startsWith("http://") || url.startsWith("https://")) {
-                    false // Load within WebView
-                } else {
-                    try {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                        startActivity(intent)
-                        true
-                    } catch (e: Exception) {
-                        false
-                    }
+                val uri = request?.url ?: return false
+                val host = uri.host
+
+                val isInternal = host != null && (
+                    host.equals(serverHost, ignoreCase = true) ||
+                    host.equals("localhost", ignoreCase = true) ||
+                    host.equals("127.0.0.1", ignoreCase = true) ||
+                    host.equals("10.0.2.2", ignoreCase = true)
+                )
+
+                if (isInternal) {
+                    return false // Load internally within WebView
+                }
+
+                return try {
+                    val intent = Intent(Intent.ACTION_VIEW, uri)
+                    startActivity(intent)
+                    true
+                } catch (e: Exception) {
+                    false
                 }
             }
 

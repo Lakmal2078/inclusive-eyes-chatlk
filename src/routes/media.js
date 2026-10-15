@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { deleteFile, getFile, uploadFile } from '../lib/r2.js';
-import { generateId, mediaExtension } from '../lib/utils.js';
+import { escapeLike, generateId, mediaExtension } from '../lib/utils.js';
 import { uploadRateLimiter } from '../middleware/rateLimit.js';
 
 export const mediaRoutes = new Hono();
@@ -45,21 +45,22 @@ mediaRoutes.get('/*', async c => {
   const isOwner = userId && key.startsWith(`media/${userId}/`);
 
   if (!isAvatar && !isOwner && c.env.DB && userId) {
+    const safeKey = escapeLike(key);
     // Check if user is a participant of a chat where this media is shared
     const inChat = await c.env.DB.prepare(`
       SELECT 1 FROM messages m
       JOIN chat_participants cp ON cp.chat_id = m.chat_id
-      WHERE (m.media_url LIKE ? OR m.media_thumbnail LIKE ?) AND cp.user_id = ?
+      WHERE (m.media_url LIKE ? ESCAPE '\\' OR m.media_thumbnail LIKE ? ESCAPE '\\') AND cp.user_id = ?
       LIMIT 1
-    `).bind(`%${key}%`, `%${key}%`, userId).first();
+    `).bind(`%${safeKey}%`, `%${safeKey}%`, userId).first();
 
     if (!inChat) {
       // Check if media is referenced in an active status
       const inStatus = await c.env.DB.prepare(`
         SELECT s.user_id FROM statuses s
-        WHERE s.media_url LIKE ? AND s.expires_at > ?
+        WHERE s.media_url LIKE ? ESCAPE '\\' AND s.expires_at > ?
         LIMIT 1
-      `).bind(`%${key}%`, Date.now()).first();
+      `).bind(`%${safeKey}%`, Date.now()).first();
 
       let allowedStatus = false;
       if (inStatus) {

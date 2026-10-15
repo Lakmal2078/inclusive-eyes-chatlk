@@ -144,3 +144,54 @@ test('Contact block synchronization updates blocked_users table', async () => {
     .bind(userA, userB).first();
   assert.equal(unblockRecord, null, 'blocked_users record should be removed on unblock');
 });
+
+test('Strict-Transport-Security (HSTS) is present in responses (Feature SEC-005)', async () => {
+  const env = createNodeEnv();
+  const res = await app.request('/api/health', {}, env);
+  assert.equal(res.headers.get('Strict-Transport-Security'), 'max-age=31536000; includeSubDomains; preload');
+});
+
+test('WebSocket ticket issuance and single-use validation (Feature SEC-004)', async () => {
+  const env = createNodeEnv();
+  const { sign } = await import('../src/lib/jwt.js');
+  const token = await sign({ sub: 'ws-user-1', exp: Math.floor(Date.now() / 1000) + 3600 }, env.JWT_SECRET);
+
+  // Request ticket
+  const ticketRes = await app.request('/api/auth/ws-ticket', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` }
+  }, env);
+
+  assert.equal(ticketRes.status, 200);
+  const data = await ticketRes.json();
+  assert.ok(data.ticket);
+  assert.equal(data.expiresIn, 60);
+
+  // Ticket stored in cache
+  const storedUser = await env.CACHE.get(`ws_ticket:${data.ticket}`);
+  assert.equal(storedUser, 'ws-user-1');
+});
+
+test('Phone number PII is masked in contacts list (Feature SEC-003)', async () => {
+  const env = createNodeEnv();
+  const { sign } = await import('../src/lib/jwt.js');
+  const token = await sign({ sub: 'user-viewer', exp: Math.floor(Date.now() / 1000) + 3600 }, env.JWT_SECRET);
+
+  const now = Date.now();
+  await env.DB.prepare('INSERT INTO users (id, username, phone, display_name, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind('user-viewer', 'viewer', '+94771111111', 'Viewer', 'hash', now, now).run();
+  await env.DB.prepare('INSERT INTO users (id, username, phone, display_name, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind('user-friend', 'friend', '+94779998888', 'Friend', 'hash', now, now).run();
+  await env.DB.prepare('INSERT INTO contacts (id, user_id, contact_id, created_at) VALUES (?, ?, ?, ?)')
+    .bind('ct-pii-1', 'user-viewer', 'user-friend', now).run();
+
+  const contactsRes = await app.request('/api/users/contacts', {
+    headers: { Authorization: `Bearer ${token}` }
+  }, env);
+
+  assert.equal(contactsRes.status, 200);
+  const json = await contactsRes.json();
+  assert.equal(json.contacts.length, 1);
+  assert.equal(json.contacts[0].phone, '+947*****888');
+});
+

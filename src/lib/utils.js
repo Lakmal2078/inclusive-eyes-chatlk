@@ -29,12 +29,25 @@ export function jsonBody(c) {
   return c.req.json().catch(() => null);
 }
 
-export function publicUser(user) {
+export function maskPhone(phone) {
+  if (!phone || typeof phone !== 'string') return '';
+  const clean = phone.trim();
+  if (clean.length <= 6) return '***';
+  return clean.slice(0, 4) + '*****' + clean.slice(-3);
+}
+
+export function escapeLike(str) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/([%_\\])/g, '\\$1');
+}
+
+export function publicUser(user, isSelf = false) {
   if (!user) return null;
+  const rawPhone = user.phone ?? null;
   return {
     id: user.id,
     username: user.username,
-    phone: user.phone,
+    phone: isSelf ? rawPhone : (rawPhone ? maskPhone(rawPhone) : null),
     displayName: user.display_name ?? user.displayName,
     avatarUrl: user.avatar_url ?? user.avatarUrl ?? null,
     bio: user.bio ?? '',
